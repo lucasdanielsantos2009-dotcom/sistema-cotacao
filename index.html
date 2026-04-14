@@ -17,6 +17,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
 
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -162,9 +164,13 @@
       Cotação
     </div>
     <div class="nav-section">Menu</div>
-    <button class="nav-item active" id="nav-nova" onclick="navTo('nova-cotacao','nav-nova')">
+    <button class="nav-item active" id="nav-nova" onclick="navTo('nova-cotacao','nav-nova');carregarFornecedoresCadastro()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       Nova cotação
+    </button>
+    <button class="nav-item" id="nav-forn" onclick="navTo('fornecedores','nav-forn');carregarFornecedoresCadastro()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      Fornecedores
     </button>
     <button class="nav-item" id="nav-hist" onclick="navTo('historico','nav-hist');carregarHistorico()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -230,9 +236,16 @@
 
       <div class="card">
         <div class="card-title"><span class="step-num">3</span> Fornecedores</div>
+        <div id="forn-cadastrados-wrap" style="margin-bottom:10px;display:none;">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Selecione dos cadastrados:</div>
+          <div id="forn-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;"></div>
+          <button class="btn btn-sm" onclick="selecionarTodosForn()" style="margin-right:6px;">Selecionar todos</button>
+          <button class="btn btn-sm" onclick="limparSelecaoForn()">Limpar seleção</button>
+          <div style="border-top:1px solid var(--border);margin:12px 0 10px;"></div>
+        </div>
         <div class="form-row">
-          <input type="text" id="inp-sup" placeholder="Nome do fornecedor" style="width:240px" onkeydown="if(event.key==='Enter')addFornecedor()"/>
-          <button class="btn" onclick="addFornecedor()">+ Fornecedor</button>
+          <input type="text" id="inp-sup" placeholder="Ou digite um fornecedor avulso" style="width:260px" onkeydown="if(event.key==='Enter')addFornecedor()"/>
+          <button class="btn" onclick="addFornecedor()">+ Adicionar</button>
         </div>
         <div id="supplier-tags" class="tags"></div>
       </div>
@@ -249,6 +262,14 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Salvar cotação
           </button>
+          <button class="btn" id="btn-pdf" style="display:none;" onclick="exportarPDF()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Exportar PDF
+          </button>
+          <button class="btn" id="btn-excel" style="display:none;" onclick="exportarExcel()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Exportar Excel
+          </button>
           <button class="btn" onclick="limparTudo()">Limpar tudo</button>
         </div>
       </div>
@@ -257,6 +278,52 @@
         <div style="font-size:18px;font-weight:700;margin-bottom:1rem;">Resultado da cotação</div>
         <div class="metrics" id="metrics"></div>
         <div id="sup-cards"></div>
+      </div>
+    </div>
+
+    <!-- FORNECEDORES -->
+    <div id="page-fornecedores" class="page">
+      <div class="page-title">Fornecedores</div>
+      <div class="page-sub">Cadastre seus fornecedores fixos para reutilizá-los em todas as cotações.</div>
+
+      <div class="card">
+        <div class="card-title">Novo fornecedor</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Nome *</div>
+            <input type="text" id="forn-nome" placeholder="Ex: Medcentro" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Contato / Representante</div>
+            <input type="text" id="forn-contato" placeholder="Ex: João Silva" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Telefone</div>
+            <input type="text" id="forn-tel" placeholder="Ex: (62) 99999-9999" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">E-mail</div>
+            <input type="text" id="forn-email" placeholder="Ex: vendas@fornecedor.com" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">CNPJ</div>
+            <input type="text" id="forn-cnpj" placeholder="Ex: 00.000.000/0001-00" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Observação</div>
+            <input type="text" id="forn-obs" placeholder="Ex: Prazo 30 dias" style="width:100%"/>
+          </div>
+        </div>
+        <div id="forn-form-msg"></div>
+        <button class="btn btn-primary" onclick="salvarFornecedor()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Salvar fornecedor
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Fornecedores cadastrados</div>
+        <div id="forn-lista"><div class="empty">Carregando...</div></div>
       </div>
     </div>
 
@@ -288,10 +355,480 @@ try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
 
 let products = [], suppliers = [], prices = {}, pendingImport = [], resultadoAtual = null;
 
+
+// ─── Exportar Excel ───────────────────────────────────────────────────────────
+function exportarExcel() {
+  if (!resultadoAtual) { toast('Calcule a cotação primeiro.'); return; }
+  const nome = document.getElementById('cotacao-nome').value.trim() || 'Cotacao';
+  const { res } = resultadoAtual;
+  const wb = XLSX.utils.book_new();
+
+  // ── Aba 1: Tabela completa de preços ──────────────────────────────────────
+  const header1 = ['Código', 'Produto', 'Qtd'];
+  suppliers.forEach(s => header1.push(s + ' (R$/un)', s + ' (Total)'));
+  header1.push('Melhor fornecedor', 'Melhor preço/un', 'Total melhor');
+
+  const rows1 = products.map(p => {
+    const row = [p.cod || '', p.nome, p.qty];
+    let bestSup = null, bestPrice = Infinity;
+    suppliers.forEach(s => {
+      const pr = prices[s]?.[p.nome] || 0;
+      row.push(pr > 0 ? pr : '');
+      row.push(pr > 0 ? pr * p.qty : '');
+      if (pr > 0 && pr < bestPrice) { bestPrice = pr; bestSup = s; }
+    });
+    row.push(bestSup || 'Sem cotação');
+    row.push(bestSup ? bestPrice : '');
+    row.push(bestSup ? bestPrice * p.qty : '');
+    return row;
+  });
+
+  const ws1 = XLSX.utils.aoa_to_sheet([header1, ...rows1]);
+
+  // Larguras das colunas
+  ws1['!cols'] = [
+    {wch:10}, {wch:45}, {wch:6},
+    ...suppliers.flatMap(() => [{wch:16},{wch:14}]),
+    {wch:22}, {wch:16}, {wch:14}
+  ];
+
+  // Linha de totais por fornecedor
+  const totRow = ['', 'TOTAL GERAL', ''];
+  suppliers.forEach(s => {
+    totRow.push('');
+    totRow.push(res[s]?.total > 0 ? res[s].total : '');
+  });
+  totRow.push('', '', suppliers.reduce((a,s)=>a+(res[s]?.total||0), 0));
+  rows1.push(totRow);
+
+  XLSX.utils.sheet_add_aoa(ws1, [totRow], {origin: rows1.length});
+  XLSX.utils.book_append_sheet(wb, ws1, 'Comparativo Completo');
+
+  // ── Aba 2: Resultado por fornecedor ───────────────────────────────────────
+  const rows2 = [['Fornecedor', 'Código', 'Produto', 'Qtd', 'Preço/un', 'Subtotal']];
+  suppliers.forEach(s => {
+    if (!res[s]?.items?.length) return;
+    res[s].items.forEach(it => {
+      rows2.push([s, it.cod || '', it.nome, it.qty, it.up, it.sub]);
+    });
+    rows2.push([s + ' — TOTAL', '', '', '', '', res[s].total]);
+    rows2.push(['', '', '', '', '', '']);
+  });
+
+  const ws2 = XLSX.utils.aoa_to_sheet(rows2);
+  ws2['!cols'] = [{wch:22},{wch:10},{wch:45},{wch:6},{wch:12},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resultado por Fornecedor');
+
+  // ── Aba 3: Resumo ─────────────────────────────────────────────────────────
+  const totalGeral = suppliers.reduce((a,s)=>a+(res[s]?.total||0), 0);
+  const rows3 = [
+    ['RESUMO DA COTAÇÃO'],
+    [''],
+    ['Nome da cotação', nome],
+    ['Data', new Date().toLocaleDateString('pt-BR')],
+    ['Total de itens', products.length],
+    ['Total de fornecedores', suppliers.length],
+    [''],
+    ['Fornecedor', 'Itens ganhos', 'Total (R$)', '% do total'],
+  ];
+  suppliers.forEach(s => {
+    const t = res[s]?.total || 0;
+    rows3.push([s, res[s]?.items?.length || 0, t, totalGeral > 0 ? ((t/totalGeral)*100).toFixed(1)+'%' : '0%']);
+  });
+  rows3.push(['', '', '', '']);
+  rows3.push(['TOTAL GERAL', '', totalGeral, '100%']);
+
+  const ws3 = XLSX.utils.aoa_to_sheet(rows3);
+  ws3['!cols'] = [{wch:30},{wch:15},{wch:16},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Resumo');
+
+  XLSX.writeFile(wb, nome.replace(/[^a-zA-Z0-9]/g,'_') + '_cotacao.xlsx');
+  toast('Excel exportado com sucesso!');
+}
+
+// ─── Exportar PDF ─────────────────────────────────────────────────────────────
+function exportarPDF() {
+  if (!resultadoAtual) { toast('Calcule a cotação primeiro.'); return; }
+  if (typeof window.jspdf === 'undefined') { toast('Aguarde o carregamento do PDF...'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const nome = document.getElementById('cotacao-nome').value.trim() || 'Cotação';
+  const { res } = resultadoAtual;
+  const totalGeral = suppliers.reduce((a,s)=>a+(res[s]?.total||0), 0);
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+
+  // ── Página 1: Tabela comparativa completa ────────────────────────────────
+  // Cabeçalho
+  doc.setFillColor(25, 113, 194);
+  doc.rect(0, 0, 297, 18, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SISTEMA DE COTAÇÃO', 14, 7);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(nome, 14, 13);
+  doc.text('Data: ' + dataHoje, 240, 7);
+  doc.text('Total geral: R$ ' + totalGeral.toFixed(2).replace('.',','), 220, 13);
+  doc.setTextColor(0, 0, 0);
+
+  // Métricas resumo
+  doc.setFontSize(9);
+  doc.setFillColor(241, 243, 245);
+  doc.rect(14, 22, 60, 14, 'F');
+  doc.rect(78, 22, 60, 14, 'F');
+  doc.rect(142, 22, 60, 14, 'F');
+  doc.rect(206, 22, 60, 14, 'F');
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(108, 117, 125);
+  doc.text('Total geral', 17, 27);
+  doc.text('Fornecedores', 81, 27);
+  doc.text('Itens cotados', 145, 27);
+  doc.text('Economia estimada', 209, 27);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(11);
+  doc.setTextColor(47, 158, 68);
+  doc.text('R$ ' + totalGeral.toFixed(2).replace('.',','), 17, 33);
+  doc.setTextColor(0,0,0);
+  doc.text(suppliers.length + ' participantes', 81, 33);
+  doc.text(products.length + ' produtos', 145, 33);
+
+  // Calcular economia (diferença entre pior e melhor preço)
+  let economia = 0;
+  products.forEach(p => {
+    let min=Infinity, max=0;
+    suppliers.forEach(s => { const pr=prices[s]?.[p.nome]||0; if(pr>0&&pr<min)min=pr; if(pr>max)max=pr; });
+    if(min!==Infinity&&max>0) economia += (max-min)*p.qty;
+  });
+  doc.setTextColor(47, 158, 68);
+  doc.text('R$ ' + economia.toFixed(2).replace('.',','), 209, 33);
+  doc.setTextColor(0,0,0);
+
+  // Tabela comparativa
+  const tableHead = [['#', 'Código', 'Produto', 'Qtd', ...suppliers.map(s=>s.substring(0,12)), 'Ganhador']];
+  const tableBody = products.map((p, idx) => {
+    let bestSup='', bestPrice=Infinity;
+    const supPrices = suppliers.map(s => {
+      const pr = prices[s]?.[p.nome] || 0;
+      if(pr>0&&pr<bestPrice){bestPrice=pr;bestSup=s;}
+      return pr > 0 ? 'R$ '+pr.toFixed(2).replace('.',',') : '-';
+    });
+    return [
+      String(idx+1),
+      p.cod || '-',
+      p.nome.length > 40 ? p.nome.slice(0,40)+'.' : p.nome,
+      String(p.qty),
+      ...supPrices,
+      bestSup ? bestSup.substring(0,14) : 'Sem cot.'
+    ];
+  });
+
+  doc.autoTable({
+    head: tableHead,
+    body: tableBody,
+    startY: 40,
+    theme: 'grid',
+    headStyles: { fillColor: [25,113,194], textColor: 255, fontSize: 7, fontStyle: 'bold', halign: 'center' },
+    bodyStyles: { fontSize: 7, cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: 8, halign: 'center' },
+      1: { cellWidth: 16 },
+      2: { cellWidth: 70 },
+      3: { cellWidth: 10, halign: 'center' },
+    },
+    alternateRowStyles: { fillColor: [248, 249, 250] },
+    didDrawCell: function(data) {
+      // Destaca o menor preço de cada linha em verde
+      if (data.section === 'body' && data.column.index >= 4 && data.column.index < 4 + suppliers.length) {
+        const row = products[data.row.index];
+        if (!row) return;
+        const colSup = suppliers[data.column.index - 4];
+        const pr = prices[colSup]?.[row.nome] || 0;
+        if (pr > 0) {
+          let isMin = true;
+          suppliers.forEach(s => { const p2=prices[s]?.[row.nome]||0; if(p2>0&&p2<pr) isMin=false; });
+          if (isMin) {
+            doc.setFillColor(235, 251, 238);
+            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+            doc.setTextColor(47, 158, 68);
+            doc.setFontSize(7);
+            doc.text(data.cell.raw, data.cell.x + data.cell.width/2, data.cell.y + data.cell.height/2 + 1, {align:'center'});
+            doc.setTextColor(0,0,0);
+          }
+        }
+      }
+    }
+  });
+
+  // ── Página 2: Resultado por fornecedor ───────────────────────────────────
+  doc.addPage();
+
+  doc.setFillColor(25, 113, 194);
+  doc.rect(0, 0, 297, 18, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(13);
+  doc.setFont('helvetica','bold');
+  doc.text('RESULTADO POR FORNECEDOR', 14, 7);
+  doc.setFontSize(10);
+  doc.setFont('helvetica','normal');
+  doc.text(nome + '  ·  ' + dataHoje, 14, 13);
+  doc.setTextColor(0,0,0);
+
+  let yPos = 24;
+  suppliers.sort((a,b)=>(res[b]?.total||0)-(res[a]?.total||0)).forEach((s, si) => {
+    if (!res[s]?.items?.length) return;
+    if (yPos > 170) { doc.addPage(); yPos = 14; }
+
+    // Card do fornecedor
+    const colors = [[25,113,194],[47,158,68],[121,92,0],[201,42,42],[95,61,196]];
+    const [r,g,b] = colors[si % colors.length];
+    doc.setFillColor(r,g,b);
+    doc.rect(14, yPos, 269, 9, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(10);
+    doc.text(s.toUpperCase(), 17, yPos+6);
+    doc.text('Total: R$ ' + res[s].total.toFixed(2).replace('.',','), 220, yPos+6);
+    doc.setTextColor(0,0,0);
+
+    const itemsBody = res[s].items.map(it => [
+      it.cod || '-',
+      it.nome.length > 55 ? it.nome.slice(0,55)+'.' : it.nome,
+      String(it.qty),
+      'R$ '+it.up.toFixed(2).replace('.',','),
+      'R$ '+it.sub.toFixed(2).replace('.',',')
+    ]);
+
+    doc.autoTable({
+      head: [['Código','Produto','Qtd','Preço/un','Subtotal']],
+      body: itemsBody,
+      startY: yPos + 10,
+      theme: 'grid',
+      headStyles: { fillColor: [241,243,245], textColor: [33,37,41], fontSize: 7.5, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 8, cellPadding: 2.5 },
+      columnStyles: {
+        0: { cellWidth: 18 },
+        1: { cellWidth: 165 },
+        2: { cellWidth: 14, halign:'center' },
+        3: { cellWidth: 28, halign:'right' },
+        4: { cellWidth: 28, halign:'right', fontStyle:'bold' },
+      },
+      footStyles: { fillColor: [235,251,238], textColor: [47,158,68], fontStyle:'bold' },
+      foot: [['','Total do fornecedor','','','R$ '+res[s].total.toFixed(2).replace('.',',')]],
+      margin: { left: 14, right: 14 }
+    });
+
+    yPos = doc.lastAutoTable.finalY + 10;
+  });
+
+  // Rodapé em todas as páginas
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i=1; i<=totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150,150,150);
+    doc.text('Sistema de Cotação · Gerado em ' + dataHoje, 14, 205);
+    doc.text('Página ' + i + ' de ' + totalPages, 260, 205);
+  }
+
+  doc.save(nome.replace(/[^a-zA-Z0-9]/g,'_') + '_cotacao.pdf');
+  toast('PDF exportado com sucesso!');
+}
+
+
+// ─── Fornecedores cadastrados ─────────────────────────────────────────────────
+let fornecedoresCadastrados = [];
+
+async function carregarFornecedoresCadastro() {
+  const lista = document.getElementById('forn-lista');
+  if (lista) lista.innerHTML = '<div class="empty"><span class="spinner"></span> Carregando...</div>';
+
+  if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') {
+    if (lista) lista.innerHTML = '<div class="alert alert-warn">Configure o Supabase para usar o cadastro.</div>';
+    return;
+  }
+  const { data, error } = await sb.from('fornecedores_cadastro').select('*').order('nome');
+  if (error) {
+    if (lista) lista.innerHTML = `<div class="alert alert-err">Erro: ${error.message}</div>`;
+    return;
+  }
+  fornecedoresCadastrados = data || [];
+  renderFornLista();
+  renderFornCheckboxes();
+}
+
+function renderFornLista() {
+  const lista = document.getElementById('forn-lista');
+  if (!lista) return;
+  if (!fornecedoresCadastrados.length) {
+    lista.innerHTML = '<div class="empty">Nenhum fornecedor cadastrado ainda.</div>';
+    return;
+  }
+  lista.innerHTML = fornecedoresCadastrados.map(f => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap;" id="forn-row-${f.id}">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:14px;color:var(--text)">${f.nome}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:3px;display:flex;flex-wrap:wrap;gap:12px;">
+          ${f.contato ? `<span>👤 ${f.contato}</span>` : ''}
+          ${f.telefone ? `<span>📞 ${f.telefone}</span>` : ''}
+          ${f.email ? `<span>✉ ${f.email}</span>` : ''}
+          ${f.cnpj ? `<span>🏢 ${f.cnpj}</span>` : ''}
+          ${f.observacao ? `<span style="color:var(--text3)">📝 ${f.observacao}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="btn btn-sm" onclick="editarFornecedor('${f.id}')">Editar</button>
+        <button class="btn btn-sm btn-danger" onclick="excluirFornecedor('${f.id}', '${f.nome.replace(/'/g,"\'")}')">Excluir</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderFornCheckboxes() {
+  const wrap = document.getElementById('forn-checkboxes');
+  const wrapOuter = document.getElementById('forn-cadastrados-wrap');
+  if (!wrap || !wrapOuter) return;
+
+  if (!fornecedoresCadastrados.length) {
+    wrapOuter.style.display = 'none';
+    return;
+  }
+  wrapOuter.style.display = 'block';
+
+  wrap.innerHTML = fornecedoresCadastrados.map(f => {
+    const ativo = suppliers.includes(f.nome);
+    return `<label style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:20px;border:1px solid ${ativo ? 'var(--blue)' : 'var(--border)'};background:${ativo ? 'var(--blue-bg)' : 'var(--surface2)'};cursor:pointer;font-size:13px;color:${ativo ? 'var(--blue)' : 'var(--text)'};font-weight:${ativo ? '600' : '400'};">
+      <input type="checkbox" ${ativo ? 'checked' : ''} onchange="toggleFornecedorCotacao('${f.nome.replace(/'/g,"\'")}', this.checked)" style="display:none"/>
+      ${f.nome}
+      ${f.telefone ? `<span style="font-size:11px;opacity:.6">${f.telefone}</span>` : ''}
+    </label>`;
+  }).join('');
+}
+
+function toggleFornecedorCotacao(nome, checked) {
+  if (checked) {
+    if (!suppliers.includes(nome)) {
+      suppliers.push(nome);
+      renderSupplierTags();
+      renderPriceTable();
+    }
+  } else {
+    const i = suppliers.indexOf(nome);
+    if (i !== -1) {
+      delete prices[suppliers[i]];
+      suppliers.splice(i, 1);
+      renderSupplierTags();
+      renderPriceTable();
+    }
+  }
+  renderFornCheckboxes();
+}
+
+function selecionarTodosForn() {
+  fornecedoresCadastrados.forEach(f => {
+    if (!suppliers.includes(f.nome)) suppliers.push(f.nome);
+  });
+  renderSupplierTags();
+  renderPriceTable();
+  renderFornCheckboxes();
+}
+
+function limparSelecaoForn() {
+  fornecedoresCadastrados.forEach(f => {
+    const i = suppliers.indexOf(f.nome);
+    if (i !== -1) { delete prices[suppliers[i]]; suppliers.splice(i, 1); }
+  });
+  renderSupplierTags();
+  renderPriceTable();
+  renderFornCheckboxes();
+}
+
+async function salvarFornecedor(editId = null) {
+  if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') { toast('Configure o Supabase primeiro.'); return; }
+  const nome = document.getElementById('forn-nome').value.trim();
+  if (!nome) { document.getElementById('forn-form-msg').innerHTML = '<div class="alert alert-warn">O nome é obrigatório.</div>'; return; }
+
+  const payload = {
+    nome,
+    contato:    document.getElementById('forn-contato').value.trim() || null,
+    telefone:   document.getElementById('forn-tel').value.trim() || null,
+    email:      document.getElementById('forn-email').value.trim() || null,
+    cnpj:       document.getElementById('forn-cnpj').value.trim() || null,
+    observacao: document.getElementById('forn-obs').value.trim() || null,
+  };
+
+  let error;
+  if (editId) {
+    ({ error } = await sb.from('fornecedores_cadastro').update(payload).eq('id', editId));
+  } else {
+    ({ error } = await sb.from('fornecedores_cadastro').insert(payload));
+  }
+
+  if (error) {
+    document.getElementById('forn-form-msg').innerHTML = `<div class="alert alert-err">Erro: ${error.message}</div>`;
+    return;
+  }
+
+  // Limpa form
+  ['forn-nome','forn-contato','forn-tel','forn-email','forn-cnpj','forn-obs'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('forn-form-msg').innerHTML = '<div class="alert alert-ok">' + (editId ? 'Fornecedor atualizado!' : 'Fornecedor salvo!') + '</div>';
+  setTimeout(() => { if(document.getElementById('forn-form-msg')) document.getElementById('forn-form-msg').innerHTML=''; }, 3000);
+
+  // Atualiza título do card
+  const cardTitle = document.querySelector('#page-fornecedores .card .card-title');
+  if (cardTitle) cardTitle.textContent = 'Novo fornecedor';
+
+  await carregarFornecedoresCadastro();
+  toast(editId ? 'Fornecedor atualizado!' : 'Fornecedor cadastrado!');
+
+  // Cancela modo edição
+  const btnSalvar = document.querySelector('#page-fornecedores .btn-primary');
+  if (btnSalvar) {
+    btnSalvar.onclick = () => salvarFornecedor();
+    btnSalvar.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Salvar fornecedor';
+  }
+}
+
+async function excluirFornecedor(id, nome) {
+  if (!confirm(`Excluir o fornecedor "${nome}"? Esta ação não pode ser desfeita.`)) return;
+  const { error } = await sb.from('fornecedores_cadastro').delete().eq('id', id);
+  if (error) { toast('Erro ao excluir: ' + error.message); return; }
+  toast('Fornecedor excluído.');
+  await carregarFornecedoresCadastro();
+}
+
+function editarFornecedor(id) {
+  const f = fornecedoresCadastrados.find(x => x.id === id);
+  if (!f) return;
+  document.getElementById('forn-nome').value    = f.nome || '';
+  document.getElementById('forn-contato').value = f.contato || '';
+  document.getElementById('forn-tel').value     = f.telefone || '';
+  document.getElementById('forn-email').value   = f.email || '';
+  document.getElementById('forn-cnpj').value    = f.cnpj || '';
+  document.getElementById('forn-obs').value     = f.observacao || '';
+
+  const cardTitle = document.querySelector('#page-fornecedores .card .card-title');
+  if (cardTitle) cardTitle.textContent = 'Editando: ' + f.nome;
+
+  const btnSalvar = document.querySelector('#page-fornecedores .btn-primary');
+  if (btnSalvar) {
+    btnSalvar.onclick = () => salvarFornecedor(id);
+    btnSalvar.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar alterações';
+  }
+
+  document.getElementById('forn-nome').focus();
+  document.querySelector('#page-fornecedores').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function init() {
   if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') { mostrarApp(null); return; }
   const { data: { session } } = await sb.auth.getSession();
-  if (session) mostrarApp(session.user);
+  if (session) {
+    mostrarApp(session.user);
+    await carregarFornecedoresCadastro();
+  }
 }
 
 function mostrarApp(user) {
@@ -604,6 +1141,8 @@ function calcular() {
   document.getElementById('sup-cards').innerHTML=cards;
   document.getElementById('resultado').style.display='block';
   document.getElementById('btn-salvar').style.display='inline-flex';
+  document.getElementById('btn-pdf').style.display='inline-flex';
+  document.getElementById('btn-excel').style.display='inline-flex';
   setTimeout(()=>document.getElementById('resultado').scrollIntoView({behavior:'smooth',block:'start'}),100);
 }
 
@@ -699,6 +1238,8 @@ function limparTudo() {
   document.getElementById('preview-wrap').style.display='none';
   document.getElementById('resultado').style.display='none';
   document.getElementById('btn-salvar').style.display='none';
+  document.getElementById('btn-pdf').style.display='none';
+  document.getElementById('btn-excel').style.display='none';
   document.getElementById('cotacao-nome').value='';
   const bs=document.getElementById('btn-salvar');
   bs.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar cotação';
