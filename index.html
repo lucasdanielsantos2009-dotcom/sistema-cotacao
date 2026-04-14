@@ -161,6 +161,25 @@
   </div>
 </div>
 
+<!-- TELA DO FORNECEDOR -->
+<div id="supplier-app" style="display:none;min-height:100vh;background:var(--bg);">
+  <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1971c2" stroke-width="2.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <span style="font-weight:700;font-size:15px;color:var(--text)">Portal do Fornecedor</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span id="sup-user-info" style="font-size:12px;color:var(--text2)"></span>
+      <button class="btn btn-sm" onclick="fazerLogout()">Sair</button>
+    </div>
+  </div>
+  <div style="max-width:900px;margin:0 auto;padding:2rem 1rem;">
+    <div id="sup-content">
+      <div class="empty"><span class="spinner"></span> Carregando cotações...</div>
+    </div>
+  </div>
+</div>
+
 <!-- APP -->
 <div id="app" class="app" style="display:none;">
 
@@ -181,6 +200,10 @@
     <button class="nav-item" id="nav-forn" onclick="navTo('fornecedores','nav-forn');carregarFornecedoresCadastro()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
       Fornecedores
+    </button>
+    <button class="nav-item" id="nav-vincular" onclick="navTo('vincular','nav-vincular');carregarVincular()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+      Vincular fornecedores
     </button>
     <button class="nav-item" id="nav-hist" onclick="navTo('historico','nav-hist');carregarHistorico()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -256,6 +279,10 @@
         <div class="form-row">
           <input type="text" id="inp-sup" placeholder="Ou digite um fornecedor avulso" style="width:260px" onkeydown="if(event.key==='Enter')addFornecedor()"/>
           <button class="btn" onclick="addFornecedor()">+ Adicionar</button>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-top:6px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Ao salvar a cotação, os fornecedores vinculados poderão fazer login e preencher os preços automaticamente.
         </div>
         <div id="supplier-tags" class="tags"></div>
       </div>
@@ -343,6 +370,48 @@
       <div class="card">
         <div class="card-title">Fornecedores cadastrados</div>
         <div id="forn-lista"><div class="empty">Carregando...</div></div>
+      </div>
+    </div>
+
+    <!-- VINCULAR FORNECEDORES -->
+    <div id="page-vincular" class="page">
+      <div class="page-title">Vincular fornecedores</div>
+      <div class="page-sub">Crie o acesso de cada fornecedor para que eles preencham os próprios preços.</div>
+
+      <div class="card" style="background:var(--blue-bg);border-color:var(--blue-border);">
+        <div style="font-size:13px;color:var(--blue);line-height:1.6;">
+          <strong style="font-weight:700">Como funciona:</strong> Crie uma conta para cada fornecedor aqui. Ele receberá um e-mail para definir a senha e, ao entrar no sistema, verá apenas as cotações em que foi convidado — preenchendo somente os preços dele, sem ver os dos outros.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Criar acesso para fornecedor</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Fornecedor cadastrado *</div>
+            <select id="vinc-forn-select" style="width:100%;height:36px;">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">E-mail de acesso *</div>
+            <input type="email" id="vinc-email" placeholder="email@fornecedor.com" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Senha temporária *</div>
+            <input type="text" id="vinc-senha" placeholder="Min. 6 caracteres" style="width:100%"/>
+          </div>
+        </div>
+        <div id="vinc-msg"></div>
+        <button class="btn btn-primary" onclick="criarAcessoFornecedor()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+          Criar acesso
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Acessos criados</div>
+        <div id="vinc-lista"><div class="empty">Carregando...</div></div>
       </div>
     </div>
 
@@ -1094,15 +1163,424 @@ function editarFornecedor(id) {
   document.querySelector('#page-fornecedores').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+
+// ─── Perfil do usuário ────────────────────────────────────────────────────────
+let perfilAtual = null;
+
+async function obterPerfil(userId) {
+  const { data } = await sb.from('perfis').select('*').eq('id', userId).single();
+  return data;
+}
+
+async function criarPerfilSeNaoExiste(userId, tipo = 'comprador', fornecedorId = null, nome = null) {
+  const { data: existe } = await sb.from('perfis').select('id').eq('id', userId).single();
+  if (!existe) {
+    await sb.from('perfis').insert({
+      id: userId,
+      tipo,
+      fornecedor_cadastro_id: fornecedorId,
+      nome
+    });
+  }
+}
+
+// ─── Tela do fornecedor ───────────────────────────────────────────────────────
+async function mostrarTelaFornecedor(user) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('supplier-app').style.display = 'block';
+  document.getElementById('sup-user-info').textContent = user.email;
+  await carregarCotacoesFornecedor(user);
+}
+
+async function carregarCotacoesFornecedor(user) {
+  const wrap = document.getElementById('sup-content');
+  wrap.innerHTML = '<div class="empty"><span class="spinner"></span> Carregando cotações...</div>';
+
+  try {
+    // Buscar os registros de fornecedor vinculados a este usuário
+    const { data: meusVinculos, error: e1 } = await sb
+      .from('fornecedores')
+      .select('id, nome, cotacao_id')
+      .eq('user_id', user.id);
+
+    if (e1) throw e1;
+    if (!meusVinculos || !meusVinculos.length) {
+      wrap.innerHTML = `
+        <div style="text-align:center;padding:4rem 1rem;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#adb5bd" stroke-width="1.5" style="display:block;margin:0 auto 1rem"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">Nenhuma cotação disponível</div>
+          <div style="font-size:13px;color:var(--text2)">Aguarde o comprador criar e publicar uma cotação com sua participação.</div>
+        </div>`;
+      return;
+    }
+
+    const cotacaoIds = [...new Set(meusVinculos.map(v => v.cotacao_id))];
+
+    // Buscar cotações
+    const { data: cotacoes, error: e2 } = await sb
+      .from('cotacoes')
+      .select('*')
+      .in('id', cotacaoIds)
+      .order('criado_em', { ascending: false });
+    if (e2) throw e2;
+
+    wrap.innerHTML = `
+      <div style="font-size:18px;font-weight:700;margin-bottom:1.5rem;color:var(--text)">
+        Olá! Você tem ${cotacoes.length} cotação(ões) para preencher.
+      </div>
+      <div id="sup-cotacoes-lista"></div>`;
+
+    const lista = document.getElementById('sup-cotacoes-lista');
+    for (const cot of cotacoes) {
+      const meuVinculo = meusVinculos.find(v => v.cotacao_id === cot.id);
+      lista.innerHTML += `
+        <div class="card" style="margin-bottom:1rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <div>
+              <div style="font-size:16px;font-weight:700">${cot.nome}</div>
+              <div style="font-size:12px;color:var(--text2);margin-top:2px">${new Date(cot.criado_em).toLocaleDateString('pt-BR')}</div>
+            </div>
+            <button class="btn btn-primary" onclick="abrirCotacaoFornecedor('${cot.id}','${meuVinculo.id}',${JSON.stringify(cot.nome)})">
+              Preencher preços
+            </button>
+          </div>
+          <div id="status-cot-${cot.id}" style="font-size:12px;color:var(--text2)">
+            <span class="spinner"></span> Verificando...
+          </div>
+        </div>`;
+      verificarStatusPrecos(cot.id, meuVinculo.id);
+    }
+  } catch(err) {
+    wrap.innerHTML = `<div class="alert alert-err">Erro: ${err.message}</div>`;
+  }
+}
+
+async function verificarStatusPrecos(cotacaoId, fornecedorId) {
+  const { data: itens } = await sb.from('itens').select('id').eq('cotacao_id', cotacaoId);
+  if (!itens?.length) return;
+  const { data: precos } = await sb.from('precos').select('id').eq('fornecedor_id', fornecedorId);
+  const preenchidos = precos?.length || 0;
+  const total = itens.length;
+  const el = document.getElementById(`status-cot-${cotacaoId}`);
+  if (!el) return;
+  if (preenchidos >= total) {
+    el.innerHTML = `<span style="color:var(--green);font-weight:600">✓ Todos os ${total} preços preenchidos</span>`;
+  } else if (preenchidos > 0) {
+    el.innerHTML = `<span style="color:var(--amber-text)">${preenchidos} de ${total} preços preenchidos</span>`;
+  } else {
+    el.innerHTML = `<span style="color:var(--red)">Nenhum preço preenchido ainda — ${total} itens aguardando</span>`;
+  }
+}
+
+async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao) {
+  const wrap = document.getElementById('sup-content');
+  wrap.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;">
+      <button class="btn btn-sm" onclick="carregarCotacoesFornecedor({id:'${(await sb.auth.getUser()).data.user.id}',email:''});carregarCotacoesFornecedor((await sb.auth.getUser()).data.user)" style="display:none"></button>
+      <button class="btn btn-sm" id="btn-voltar-sup">← Voltar</button>
+      <div style="font-size:18px;font-weight:700;">${nomeCotacao}</div>
+    </div>
+    <div id="sup-form-wrap"><div class="empty"><span class="spinner"></span> Carregando itens...</div></div>`;
+
+  document.getElementById('btn-voltar-sup').onclick = async () => {
+    const { data: { user } } = await sb.auth.getUser();
+    carregarCotacoesFornecedor(user);
+  };
+
+  try {
+    // Buscar itens
+    const { data: itens, error: e1 } = await sb.from('itens').select('*').eq('cotacao_id', cotacaoId);
+    if (e1) throw e1;
+
+    // Buscar preços já preenchidos
+    const itemIds = itens.map(i => i.id);
+    const { data: precosExist } = await sb.from('precos').select('*')
+      .eq('fornecedor_id', fornecedorId)
+      .in('item_id', itemIds);
+
+    const precosMap = {};
+    (precosExist || []).forEach(p => { precosMap[p.item_id] = p; });
+
+    const formWrap = document.getElementById('sup-form-wrap');
+    formWrap.innerHTML = `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-size:14px;font-weight:600">${itens.length} itens para cotar</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">Preencha o preço unitário de cada produto. Deixe em branco se não tiver o item.</div>
+          </div>
+          <button class="btn btn-primary" onclick="salvarPrecosFornecedor('${fornecedorId}','${cotacaoId}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+            Salvar todos os preços
+          </button>
+        </div>
+        <div id="sup-save-msg"></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th style="min-width:60px">Código</th>
+              <th style="min-width:200px">Produto</th>
+              <th style="min-width:60px">Qtd</th>
+              <th style="min-width:140px">Seu preço (R$/un)</th>
+              <th style="min-width:100px">Subtotal</th>
+            </tr></thead>
+            <tbody id="sup-itens-body"></tbody>
+          </table>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
+          <button class="btn btn-primary" onclick="salvarPrecosFornecedor('${fornecedorId}','${cotacaoId}')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+            Salvar todos os preços
+          </button>
+          <span style="font-size:12px;color:var(--text2)">Os preços são visíveis ao comprador em tempo real após salvar.</span>
+        </div>
+      </div>`;
+
+    const tbody = document.getElementById('sup-itens-body');
+    itens.forEach(item => {
+      const precoExist = precosMap[item.id];
+      const val = precoExist ? precoExist.preco_unitario : '';
+      const qty = parseFloat(item.quantidade) || 1;
+      tbody.innerHTML += `
+        <tr>
+          <td style="color:var(--text2);font-size:12px">${item.codigo || '—'}</td>
+          <td title="${item.nome}">${item.nome.length>50?item.nome.slice(0,50)+'…':item.nome}</td>
+          <td style="color:var(--text2)">${qty}</td>
+          <td>
+            <input type="number" min="0" step="0.01" placeholder="0,00"
+              value="${val}"
+              id="sup-preco-${item.id}"
+              data-item-id="${item.id}"
+              data-preco-id="${precoExist?.id || ''}"
+              data-qty="${qty}"
+              oninput="atualizarSubtotalForn('${item.id}',${qty})"
+              style="width:130px;height:32px;font-size:13px;border-radius:6px;border:1px solid var(--border2);padding:0 8px;background:var(--surface);color:var(--text)"/>
+          </td>
+          <td id="sub-${item.id}" style="font-weight:600;color:var(--green)">
+            ${val ? 'R$ '+(val*qty).toFixed(2).replace('.',',') : '—'}
+          </td>
+        </tr>`;
+    });
+  } catch(err) {
+    document.getElementById('sup-form-wrap').innerHTML = `<div class="alert alert-err">Erro: ${err.message}</div>`;
+  }
+}
+
+function atualizarSubtotalForn(itemId, qty) {
+  const inp = document.getElementById(`sup-preco-${itemId}`);
+  const sub = document.getElementById(`sub-${itemId}`);
+  const v = parseFloat(inp.value);
+  sub.textContent = (!isNaN(v) && v > 0) ? 'R$ '+(v*qty).toFixed(2).replace('.',',') : '—';
+}
+
+async function salvarPrecosFornecedor(fornecedorId, cotacaoId) {
+  const msg = document.getElementById('sup-save-msg');
+  msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Salvando...</div>';
+
+  try {
+    const inputs = document.querySelectorAll('#sup-itens-body input[data-item-id]');
+    const upserts = [];
+
+    inputs.forEach(inp => {
+      const v = parseFloat(inp.value);
+      const itemId = inp.getAttribute('data-item-id');
+      const precoId = inp.getAttribute('data-preco-id');
+      if (!isNaN(v) && v > 0) {
+        if (precoId) {
+          // Update existente
+          upserts.push({ id: precoId, item_id: itemId, fornecedor_id: fornecedorId, preco_unitario: v });
+        } else {
+          upserts.push({ item_id: itemId, fornecedor_id: fornecedorId, preco_unitario: v });
+        }
+      }
+    });
+
+    if (!upserts.length) {
+      msg.innerHTML = '<div class="alert alert-warn">Preencha ao menos um preço antes de salvar.</div>';
+      return;
+    }
+
+    // Separar inserts de updates
+    const toUpdate = upserts.filter(u => u.id);
+    const toInsert = upserts.filter(u => !u.id);
+
+    if (toUpdate.length) {
+      for (const u of toUpdate) {
+        const { error } = await sb.from('precos').update({ preco_unitario: u.preco_unitario }).eq('id', u.id);
+        if (error) throw error;
+      }
+    }
+    if (toInsert.length) {
+      const { error } = await sb.from('precos').insert(toInsert);
+      if (error) throw error;
+    }
+
+    msg.innerHTML = `<div class="alert alert-ok">✓ ${upserts.length} preço(s) salvos com sucesso! O comprador já pode visualizar.</div>`;
+
+    // Atualizar data-preco-id nos inputs para futuras edições
+    const itemIds = upserts.map(u => u.item_id);
+    const { data: novosPrecos } = await sb.from('precos').select('*')
+      .eq('fornecedor_id', fornecedorId)
+      .in('item_id', itemIds);
+    (novosPrecos || []).forEach(p => {
+      const inp = document.querySelector(`input[data-item-id="${p.item_id}"]`);
+      if (inp) inp.setAttribute('data-preco-id', p.id);
+    });
+
+  } catch(err) {
+    msg.innerHTML = `<div class="alert alert-err">Erro ao salvar: ${err.message}</div>`;
+  }
+}
+
+// ─── Vincular fornecedores (tela do comprador) ────────────────────────────────
+async function carregarVincular() {
+  // Preencher select de fornecedores cadastrados
+  const sel = document.getElementById('vinc-forn-select');
+  if (sel && fornecedoresCadastrados.length) {
+    sel.innerHTML = '<option value="">Selecione o fornecedor...</option>' +
+      fornecedoresCadastrados.map(f => `<option value="${f.id}" data-nome="${f.nome}">${f.nome}${f.email?' · '+f.email:''}</option>`).join('');
+  }
+
+  // Preencher lista de acessos criados
+  await carregarListaAcessos();
+}
+
+async function carregarListaAcessos() {
+  const lista = document.getElementById('vinc-lista');
+  if (!lista) return;
+  lista.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+
+  // Buscar perfis de fornecedores
+  const { data: perfis, error } = await sb
+    .from('perfis')
+    .select('id, nome, tipo, fornecedor_cadastro_id')
+    .eq('tipo', 'fornecedor');
+
+  if (error || !perfis?.length) {
+    lista.innerHTML = '<div class="empty">Nenhum acesso criado ainda.</div>';
+    return;
+  }
+
+  // Buscar e-mails via auth — usamos o campo nome que salvamos
+  lista.innerHTML = perfis.map(p => {
+    const forn = fornecedoresCadastrados.find(f => f.id === p.fornecedor_cadastro_id);
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:700;font-size:14px">${forn?.nome || p.nome || 'Fornecedor'}</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:2px">
+            ${forn?.email ? '✉ '+forn.email : ''} 
+            ${forn?.telefone ? ' · 📞 '+forn.telefone : ''}
+          </div>
+        </div>
+        <span class="badge badge-green">Acesso ativo</span>
+      </div>`;
+  }).join('');
+}
+
+async function criarAcessoFornecedor() {
+  const sel = document.getElementById('vinc-forn-select');
+  const email = document.getElementById('vinc-email').value.trim();
+  const senha = document.getElementById('vinc-senha').value.trim();
+  const msg = document.getElementById('vinc-msg');
+
+  if (!sel.value || !email || !senha) {
+    msg.innerHTML = '<div class="alert alert-warn">Preencha todos os campos.</div>';
+    return;
+  }
+  if (senha.length < 6) {
+    msg.innerHTML = '<div class="alert alert-warn">A senha deve ter ao menos 6 caracteres.</div>';
+    return;
+  }
+
+  const fornId = sel.value;
+  const fornNome = sel.options[sel.selectedIndex].getAttribute('data-nome');
+
+  msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Criando acesso...</div>';
+
+  try {
+    // Criar usuário no Supabase Auth usando a service role não está disponível no frontend
+    // Usamos signUp normal — o fornecedor receberá e-mail de confirmação
+    const { data: authData, error: authErr } = await sb.auth.signUp({
+      email,
+      password: senha,
+      options: {
+        data: { tipo: 'fornecedor', fornecedor_id: fornId, nome: fornNome }
+      }
+    });
+
+    if (authErr) throw authErr;
+    if (!authData.user) throw new Error('Usuário não foi criado.');
+
+    // Criar perfil
+    const { error: perfilErr } = await sb.from('perfis').upsert({
+      id: authData.user.id,
+      tipo: 'fornecedor',
+      fornecedor_cadastro_id: fornId,
+      nome: fornNome
+    });
+    if (perfilErr) throw perfilErr;
+
+    // Atualizar todos os registros de fornecedor nas cotações com esse fornecedor_cadastro
+    // para vincular o user_id (para cotações futuras — existentes precisam ser manualmente vinculadas)
+    msg.innerHTML = `<div class="alert alert-ok">
+      ✓ Acesso criado para <strong>${fornNome}</strong>!<br>
+      <small>E-mail: ${email} · Senha temporária: ${senha}</small><br>
+      <small style="color:var(--text2)">O fornecedor pode precisar confirmar o e-mail antes de entrar. Envie as credenciais para ele.</small>
+    </div>`;
+
+    // Limpar campos
+    sel.value = '';
+    document.getElementById('vinc-email').value = '';
+    document.getElementById('vinc-senha').value = '';
+
+    await carregarListaAcessos();
+    toast('Acesso criado para ' + fornNome + '!');
+
+  } catch(err) {
+    msg.innerHTML = `<div class="alert alert-err">Erro: ${err.message}</div>`;
+  }
+}
+
+// ─── Vincular fornecedor na cotação ao user_id quando salvar ─────────────────
+async function vincularFornecedoresNaCotacao(cotacaoId) {
+  if (!sb) return;
+  // Buscar fornecedores desta cotação
+  const { data: fors } = await sb.from('fornecedores').select('*').eq('cotacao_id', cotacaoId);
+  if (!fors?.length) return;
+
+  // Para cada fornecedor, tentar vincular ao perfil cadastrado
+  for (const f of fors) {
+    if (f.user_id) continue; // já vinculado
+    // Buscar perfil pelo nome do fornecedor cadastrado
+    const fornCad = fornecedoresCadastrados.find(fc => fc.nome === f.nome);
+    if (!fornCad) continue;
+    const { data: perfil } = await sb.from('perfis')
+      .select('id')
+      .eq('fornecedor_cadastro_id', fornCad.id)
+      .eq('tipo', 'fornecedor')
+      .single();
+    if (perfil) {
+      await sb.from('fornecedores').update({ user_id: perfil.id }).eq('id', f.id);
+    }
+  }
+}
+
 async function init() {
   if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') { mostrarApp(null); return; }
   const { data: { session } } = await sb.auth.getSession();
   if (session) {
-    mostrarApp(session.user);
-    await carregarFornecedoresCadastro();
-    // Auto-redirect to dashboard
-    navTo('dashboard', 'nav-dash');
-    await carregarDashboard();
+    const perfil = await obterPerfil(session.user.id);
+    perfilAtual = perfil;
+    if (perfil && perfil.tipo === 'fornecedor') {
+      await mostrarTelaFornecedor(session.user);
+    } else {
+      mostrarApp(session.user);
+      await carregarFornecedoresCadastro();
+      navTo('dashboard', 'nav-dash');
+      await carregarDashboard();
+    }
   }
 }
 
@@ -1124,7 +1602,16 @@ async function fazerLogin() {
   if (!email || !senha) { document.getElementById('login-msg').innerHTML = '<div class="alert alert-warn">Preencha e-mail e senha.</div>'; return; }
   const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
   if (error) { document.getElementById('login-msg').innerHTML = `<div class="alert alert-err">${error.message}</div>`; return; }
-  mostrarApp(data.user);
+  const perfil = await obterPerfil(data.user.id);
+  perfilAtual = perfil;
+  if (perfil && perfil.tipo === 'fornecedor') {
+    await mostrarTelaFornecedor(data.user);
+  } else {
+    mostrarApp(data.user);
+    await carregarFornecedoresCadastro();
+    navTo('dashboard', 'nav-dash');
+    await carregarDashboard();
+  }
 }
 
 async function criarConta() {
