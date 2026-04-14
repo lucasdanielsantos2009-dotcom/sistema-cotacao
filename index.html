@@ -1251,21 +1251,34 @@ async function carregarCotacoesFornecedor(user) {
     const lista = document.getElementById('sup-cotacoes-lista');
     for (const cot of cotacoes) {
       const meuVinculo = meusVinculos.find(v => v.cotacao_id === cot.id);
-      lista.innerHTML += `
-        <div class="card" style="margin-bottom:1rem;">
-          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
-            <div>
-              <div style="font-size:16px;font-weight:700">${cot.nome}</div>
-              <div style="font-size:12px;color:var(--text2);margin-top:2px">${new Date(cot.criado_em).toLocaleDateString('pt-BR')}</div>
-            </div>
-            <button class="btn btn-primary" onclick="abrirCotacaoFornecedor('${cot.id}','${meuVinculo.id}',${JSON.stringify(cot.nome)})">
-              Preencher preços
-            </button>
-          </div>
-          <div id="status-cot-${cot.id}" style="font-size:12px;color:var(--text2)">
-            <span class="spinner"></span> Verificando...
-          </div>
-        </div>`;
+      if (!meuVinculo) continue;
+
+      // Criar card via DOM para evitar problemas com caracteres especiais no nome
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.marginBottom = '1rem';
+      card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">' +
+          '<div>' +
+            '<div style="font-size:16px;font-weight:700;">' + cot.nome + '</div>' +
+            '<div style="font-size:12px;color:var(--text2);margin-top:2px;">' + new Date(cot.criado_em).toLocaleDateString('pt-BR') + '</div>' +
+          '</div>' +
+          '<button class="btn btn-primary" id="btn-abrir-' + cot.id + '">Preencher preços</button>' +
+        '</div>' +
+        '<div id="status-cot-' + cot.id + '" style="font-size:12px;color:var(--text2);">' +
+          '<span class="spinner"></span> Verificando...' +
+        '</div>';
+
+      lista.appendChild(card);
+
+      // Vincular o click via addEventListener (seguro com qualquer nome)
+      const cotId = cot.id;
+      const fornId = meuVinculo.id;
+      const cotNome = cot.nome;
+      document.getElementById('btn-abrir-' + cotId).addEventListener('click', function() {
+        abrirCotacaoFornecedor(cotId, fornId, cotNome);
+      });
+
       verificarStatusPrecos(cot.id, meuVinculo.id);
     }
   } catch(err) {
