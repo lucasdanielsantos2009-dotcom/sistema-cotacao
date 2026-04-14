@@ -1759,16 +1759,12 @@ async function carregarListaAcessos() {
         this.textContent = 'Cancelar';
 
         // Preencher form de edição
-        // Buscar e-mail atual do usuário
-        const { data: userData } = await sb.auth.admin.getUserById(p.id).catch(() => ({ data: null }));
-        const emailAtual = userData?.user?.email || '';
-
         editDiv.innerHTML =
           '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.04em;">Editar acesso — ' + nome + '</div>' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">' +
             '<div>' +
               '<div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Novo e-mail de acesso</div>' +
-              '<input type="email" id="novo-email-' + p.id + '" placeholder="Deixe em branco para não alterar" value="' + emailAtual + '" style="width:100%;height:36px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:0 10px;font-size:13px;"/>' +
+              '<input type="email" id="novo-email-' + p.id + '" placeholder="novo@email.com" style="width:100%;height:36px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:0 10px;font-size:13px;"/>' +
             '</div>' +
             '<div>' +
               '<div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Nova senha (mín. 6 caracteres)</div>' +
@@ -1799,45 +1795,23 @@ async function carregarListaAcessos() {
           this.innerHTML = '<span class="spinner"></span> Salvando...';
           this.disabled = true;
 
-          try {
-            // Tentar via admin API
-            const updates = {};
-            if (novoEmail) updates.email = novoEmail;
-            if (novaSenha) updates.password = novaSenha;
+          // Sem acesso à admin API no frontend — mostra credenciais para repassar
+          let resumo = [];
+          if (novoEmail) resumo.push('E-mail: <strong>' + novoEmail + '</strong>');
+          if (novaSenha) resumo.push('Senha: <strong>' + novaSenha + '</strong>');
 
-            const { error } = await sb.auth.admin.updateUserById(p.id, updates);
-            if (error) throw error;
+          msgEl.innerHTML =
+            '<div class="alert alert-ok">' +
+              '✓ Novas credenciais para <strong>' + nome + '</strong>:<br>' +
+              '<span style="font-size:13px;line-height:2;">' + resumo.join('<br>') + '</span><br>' +
+              '<small style="color:var(--text2)">Envie ao fornecedor. Para aplicar: exclua e recrie o acesso com as novas credenciais, ou peça ao fornecedor usar "Esqueci minha senha".</small>' +
+            '</div>';
 
-            // Atualizar nome visível se e-mail mudou
-            if (novoEmail) {
-              document.getElementById('acesso-info-' + p.id).innerHTML =
-                '✉ ' + novoEmail +
-                (forn?.telefone ? ' · 📞 ' + forn.telefone : '');
-            }
-
-            let resumo = [];
-            if (novoEmail) resumo.push('E-mail: <strong>' + novoEmail + '</strong>');
-            if (novaSenha) resumo.push('Senha: <strong>' + novaSenha + '</strong>');
-
-            msgEl.innerHTML = '<div class="alert alert-ok">✓ Acesso atualizado!<br><small>' + resumo.join(' · ') + '</small><br><small style="color:var(--text2)">Envie as novas credenciais para o fornecedor.</small></div>';
-            document.getElementById('nova-senha-' + p.id).value = '';
-
-          } catch(err) {
-            // Fallback sem admin API — mostrar credenciais para o comprador repassar
-            let resumo = [];
-            if (novoEmail) resumo.push('E-mail: <strong>' + novoEmail + '</strong>');
-            if (novaSenha) resumo.push('Senha: <strong>' + novaSenha + '</strong>');
-            msgEl.innerHTML =
-              '<div class="alert alert-ok">' +
-                '✓ Novas credenciais geradas para <strong>' + nome + '</strong>:<br>' +
-                '<span style="font-size:13px;">' + resumo.join('<br>') + '</span><br>' +
-                '<small style="color:var(--text2)">Envie essas informações para o fornecedor. Para aplicar a nova senha, o fornecedor deve usar "Esqueci minha senha" ou você pode recriar o acesso.</small>' +
-              '</div>';
-            if (novoEmail) {
-              document.getElementById('acesso-info-' + p.id).innerHTML =
-                '✉ ' + novoEmail + (forn?.telefone ? ' · 📞 ' + forn.telefone : '');
-            }
+          if (novoEmail) {
+            const infoEl = document.getElementById('acesso-info-' + p.id);
+            if (infoEl) infoEl.innerHTML = '✉ ' + novoEmail + (forn?.telefone ? ' · 📞 ' + forn.telefone : '');
           }
+          document.getElementById('nova-senha-' + p.id).value = '';
 
           this.innerHTML = 'Salvar alterações';
           this.disabled = false;
