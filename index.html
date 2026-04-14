@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Sistema de Cotação</title>
-
+ 
 <!-- =====================================================
      CONFIGURAÇÃO SUPABASE
      Substitua os valores abaixo pelas suas credenciais
@@ -14,10 +14,10 @@
   const SUPABASE_URL = 'https://anktzkvawcnahtqpdtfw.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_FT_YBDZM44SiGvR_GixqQw_35VGvW8y';
 </script>
-
+ 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
+ 
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -124,7 +124,7 @@
 </style>
 </head>
 <body>
-
+ 
 <!-- LOGIN -->
 <div id="login-screen" class="login-wrap">
   <div class="login-card">
@@ -152,10 +152,10 @@
     </div>
   </div>
 </div>
-
+ 
 <!-- APP -->
 <div id="app" class="app" style="display:none;">
-
+ 
   <aside class="sidebar">
     <div class="sidebar-logo">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1971c2" stroke-width="2.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
@@ -178,21 +178,21 @@
       </button>
     </div>
   </aside>
-
+ 
   <main class="main">
-
+ 
     <!-- NOVA COTAÇÃO -->
     <div id="page-nova-cotacao" class="page active">
       <div class="page-title">Nova cotação</div>
       <div class="page-sub">Importe os itens, adicione os fornecedores e preencha os preços.</div>
-
+ 
       <div class="card">
         <div class="card-title">Identificação da cotação</div>
         <div class="form-row">
           <input type="text" id="cotacao-nome" placeholder="Ex: Pedido Eurofarma — Abril/2026" style="flex:1;min-width:200px;"/>
         </div>
       </div>
-
+ 
       <div class="card">
         <div class="card-title"><span class="step-num">1</span> Importar itens — relatório Inovafarma ou planilha</div>
         <div id="drop-zone" class="drop-zone"
@@ -215,7 +215,7 @@
           </div>
         </div>
       </div>
-
+ 
       <div class="card">
         <div class="card-title"><span class="step-num">2</span> Adicionar item manualmente (opcional)</div>
         <div class="form-row">
@@ -227,7 +227,7 @@
         </div>
         <div id="product-tags" class="tags"></div>
       </div>
-
+ 
       <div class="card">
         <div class="card-title"><span class="step-num">3</span> Fornecedores</div>
         <div class="form-row">
@@ -236,7 +236,7 @@
         </div>
         <div id="supplier-tags" class="tags"></div>
       </div>
-
+ 
       <div class="card">
         <div class="card-title"><span class="step-num">4</span> Preencher preços por fornecedor</div>
         <div id="price-wrap"><div class="empty">Adicione itens e fornecedores para preencher os preços.</div></div>
@@ -252,14 +252,14 @@
           <button class="btn" onclick="limparTudo()">Limpar tudo</button>
         </div>
       </div>
-
+ 
       <div id="resultado" style="display:none;">
         <div style="font-size:18px;font-weight:700;margin-bottom:1rem;">Resultado da cotação</div>
         <div class="metrics" id="metrics"></div>
         <div id="sup-cards"></div>
       </div>
     </div>
-
+ 
     <!-- HISTÓRICO -->
     <div id="page-historico" class="page">
       <div class="page-title">Histórico de cotações</div>
@@ -276,35 +276,35 @@
         <div id="detalhe-cards"></div>
       </div>
     </div>
-
+ 
   </main>
 </div>
-
+ 
 <div id="toast"></div>
-
+ 
 <script>
 let sb;
 try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
-
+ 
 let products = [], suppliers = [], prices = {}, pendingImport = [], resultadoAtual = null;
-
+ 
 async function init() {
   if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') { mostrarApp(null); return; }
   const { data: { session } } = await sb.auth.getSession();
   if (session) mostrarApp(session.user);
 }
-
+ 
 function mostrarApp(user) {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'grid';
   if (user) document.getElementById('user-info').textContent = user.email;
 }
-
+ 
 function toggleCadastro() {
   const f = document.getElementById('cadastro-form');
   f.style.display = f.style.display === 'none' ? 'block' : 'none';
 }
-
+ 
 async function fazerLogin() {
   if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') { mostrarApp(null); return; }
   const email = document.getElementById('login-email').value.trim();
@@ -314,7 +314,7 @@ async function fazerLogin() {
   if (error) { document.getElementById('login-msg').innerHTML = `<div class="alert alert-err">${error.message}</div>`; return; }
   mostrarApp(data.user);
 }
-
+ 
 async function criarConta() {
   if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') { mostrarApp(null); return; }
   const email = document.getElementById('login-email').value.trim();
@@ -324,26 +324,26 @@ async function criarConta() {
   if (error) { document.getElementById('login-msg').innerHTML = `<div class="alert alert-err">${error.message}</div>`; return; }
   document.getElementById('login-msg').innerHTML = '<div class="alert alert-ok">Conta criada! Verifique seu e-mail para confirmar e depois faça login.</div>';
 }
-
+ 
 async function fazerLogout() {
   if (sb) await sb.auth.signOut();
   location.reload();
 }
-
+ 
 function navTo(pageId, navId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + pageId).classList.add('active');
   document.getElementById(navId).classList.add('active');
 }
-
+ 
 function handleDrop(ev) {
   ev.preventDefault();
   document.getElementById('drop-zone').classList.remove('over');
   const f = ev.dataTransfer.files[0];
   if (f) handleFile(f);
 }
-
+ 
 function handleFile(file) {
   if (!file) return;
   const ext = file.name.split('.').pop().toLowerCase();
@@ -361,11 +361,11 @@ function handleFile(file) {
   if (ext === 'csv') reader.readAsText(file,'UTF-8');
   else reader.readAsBinaryString(file);
 }
-
+ 
 function parseCsv(text) {
   parseRows(text.split(/\r?\n/).filter(l=>l.trim()).map(l=>l.split(/[,;]/).map(c=>c.trim().replace(/^"|"$/g,''))));
 }
-
+ 
 function parseRows(rows) {
   rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
   if (rows.length < 2) { showImportMsg('alert-warn','Arquivo vazio.'); return; }
@@ -396,12 +396,19 @@ function parseRows(rows) {
   if (hRow===-1||cNome===-1) { showImportMsg('alert-warn','Não identifiquei as colunas. Verifique se há cabeçalho com "Produto" ou "Código".'); return; }
   pendingImport=[];
   for (let i=hRow+1; i<rows.length; i++) {
-    const r=rows[i], nome=String(r[cNome]||'').trim();
-    if (!nome||['total','fonte','origem','qtde produtos','itens:'].some(s=>nome.toLowerCase().includes(s))) continue;
-    const cod=cCod!==-1?String(r[cCod]||'').trim():'';
+    const r=rows[i];
+    const nomeRaw=String(r[cNome]||'').trim();
+    const codRaw=cCod!==-1?String(r[cCod]||'').trim():'';
+    if (!nomeRaw) continue;
+    const nomeLow=nomeRaw.toLowerCase();
+    const labelsIgnorar=['total','fonte:','fonte ','origem:','data:','observa','pedido de compra','razao social','nome fantasia','cnpj','telefone','endereco','fabricante','codigo','qtde produto','itens:','extraido'];
+    if (labelsIgnorar.some(s=>nomeLow.startsWith(s))) continue;
+    if (nomeRaw.endsWith(':')) continue;
+    if (nomeRaw.length < 4) continue;
+    if (cCod !== -1 && codRaw !== '' && !/^\d+$/.test(codRaw.replace(/\s/g,''))) continue;
     const qty=parseFloat(String(cQtd!==-1?r[cQtd]:'1').replace(',','.'))||1;
     const unit=cUnit!==-1?String(r[cUnit]||'un').trim():'un';
-    pendingImport.push({cod, nome, qty, unit:unit||'un'});
+    pendingImport.push({cod:codRaw, nome:nomeRaw, qty, unit:unit||'un'});
   }
   if (!pendingImport.length) { showImportMsg('alert-warn','Nenhum item válido encontrado.'); return; }
   document.getElementById('preview-count').textContent = pendingImport.length + ' item(s) encontrado(s)';
@@ -411,7 +418,7 @@ function parseRows(rows) {
   document.getElementById('preview-wrap').style.display='block';
   showImportMsg('alert-ok', pendingImport.length+' item(s) detectado(s). Confirme para adicionar.');
 }
-
+ 
 function confirmarImport() {
   let added=0;
   pendingImport.forEach(it=>{ if(!products.find(p=>p.nome===it.nome)){products.push(it);added++;} });
@@ -420,15 +427,15 @@ function confirmarImport() {
   showImportMsg('alert-ok',added+' item(s) importado(s) com sucesso.');
   renderProductTags(); renderPriceTable();
 }
-
+ 
 function limparImport() {
   pendingImport=[];
   document.getElementById('preview-wrap').style.display='none';
   document.getElementById('import-msg').innerHTML='';
 }
-
+ 
 function showImportMsg(cls,txt) { document.getElementById('import-msg').innerHTML=`<div class="alert ${cls}">${txt}</div>`; }
-
+ 
 function addManual() {
   const cod=document.getElementById('inp-cod').value.trim();
   const nome=document.getElementById('inp-prod').value.trim();
@@ -439,13 +446,13 @@ function addManual() {
   ['inp-cod','inp-prod','inp-qty','inp-unit'].forEach(id=>document.getElementById(id).value='');
   renderProductTags(); renderPriceTable();
 }
-
+ 
 function removeProduct(i) {
   const p=products[i];
   suppliers.forEach(s=>{if(prices[s])delete prices[s][p.nome];});
   products.splice(i,1); renderProductTags(); renderPriceTable();
 }
-
+ 
 function renderProductTags() {
   document.getElementById('product-tags').innerHTML=products.map((p,i)=>
     `<span class="tag">${p.cod?'<small style="color:var(--text3)">'+p.cod+' ·</small> ':''}`+
@@ -453,25 +460,25 @@ function renderProductTags() {
     ` <span class="x" onclick="removeProduct(${i})">×</span></span>`
   ).join('');
 }
-
+ 
 function addFornecedor() {
   const v=document.getElementById('inp-sup').value.trim();
   if(!v||suppliers.includes(v)) return;
   suppliers.push(v); document.getElementById('inp-sup').value='';
   renderSupplierTags(); renderPriceTable();
 }
-
+ 
 function removeFornecedor(i) {
   const s=suppliers[i]; suppliers.splice(i,1); delete prices[s];
   renderSupplierTags(); renderPriceTable();
 }
-
+ 
 function renderSupplierTags() {
   document.getElementById('supplier-tags').innerHTML=suppliers.map((s,i)=>
     `<span class="tag">${s} <span class="x" onclick="removeFornecedor(${i})">×</span></span>`
   ).join('');
 }
-
+ 
 function renderPriceTable() {
   const wrap=document.getElementById('price-wrap');
   if(!suppliers.length||!products.length){wrap.innerHTML='<div class="empty">Adicione itens e fornecedores para preencher os preços.</div>';return;}
@@ -489,9 +496,9 @@ function renderPriceTable() {
   html+='</tbody></table></div>';
   wrap.innerHTML=html;
 }
-
+ 
 function setPrice(s,p,v){if(!prices[s])prices[s]={};prices[s][p]=parseFloat(v)||0;}
-
+ 
 function calcular() {
   if(!suppliers.length||!products.length){toast('Adicione itens e fornecedores primeiro.');return;}
   const winners={};
@@ -534,7 +541,7 @@ function calcular() {
   document.getElementById('btn-salvar').style.display='inline-flex';
   setTimeout(()=>document.getElementById('resultado').scrollIntoView({behavior:'smooth',block:'start'}),100);
 }
-
+ 
 async function salvarCotacao() {
   if (!sb||SUPABASE_URL==='COLE_SUA_URL_AQUI'){toast('Configure o Supabase primeiro.');return;}
   if (!resultadoAtual){toast('Calcule a cotação antes de salvar.');return;}
@@ -561,7 +568,7 @@ async function salvarCotacao() {
     btn.disabled=false;
   }
 }
-
+ 
 async function carregarHistorico() {
   if(!sb||SUPABASE_URL==='COLE_SUA_URL_AQUI'){document.getElementById('historico-lista').innerHTML='<div class="alert alert-warn">Configure as credenciais do Supabase no arquivo index.html para usar o histórico.</div>';return;}
   document.getElementById('historico-lista').innerHTML='<div class="empty"><span class="spinner"></span> Carregando...</div>';
@@ -575,7 +582,7 @@ async function carregarHistorico() {
       <button class="btn btn-sm" onclick="verDetalhe('${c.id}',${JSON.stringify(c.nome)})">Ver resultado</button>
     </div>`).join('');
 }
-
+ 
 async function verDetalhe(cId,nome) {
   document.getElementById('historico-card').style.display='none';
   const det=document.getElementById('detalhe-cotacao'); det.style.display='block';
@@ -608,19 +615,19 @@ async function verDetalhe(cId,nome) {
   });
   document.getElementById('detalhe-cards').innerHTML=cards;
 }
-
+ 
 function fecharDetalhe() {
   document.getElementById('detalhe-cotacao').style.display='none';
   document.getElementById('historico-card').style.display='block';
 }
-
+ 
 function fmt(n){return 'R$ '+parseFloat(n||0).toFixed(2).replace('.',',');}
-
+ 
 function toast(msg) {
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),3500);
 }
-
+ 
 function limparTudo() {
   products=[]; suppliers=[]; prices={}; pendingImport=[]; resultadoAtual=null;
   ['product-tags','supplier-tags','import-msg'].forEach(id=>document.getElementById(id).innerHTML='');
@@ -633,7 +640,7 @@ function limparTudo() {
   bs.style.background=''; bs.disabled=false;
   renderPriceTable(); toast('Tudo limpo!');
 }
-
+ 
 init();
 </script>
 </body>
