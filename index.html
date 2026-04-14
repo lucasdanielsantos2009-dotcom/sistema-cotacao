@@ -1462,37 +1462,121 @@ async function carregarHistorico() {
     </div>`).join('');
 }
 
-async function verDetalhe(cId,nome) {
-  document.getElementById('historico-card').style.display='none';
-  const det=document.getElementById('detalhe-cotacao'); det.style.display='block';
-  document.getElementById('detalhe-titulo').textContent=nome;
-  document.getElementById('detalhe-metrics').innerHTML='<div class="empty"><span class="spinner"></span></div>';
-  document.getElementById('detalhe-cards').innerHTML='';
-  const {data:itens}=await sb.from('itens').select('*').eq('cotacao_id',cId);
-  const {data:fors}=await sb.from('fornecedores').select('*').eq('cotacao_id',cId);
-  const {data:precs}=await sb.from('precos').select('*').in('item_id',itens.map(i=>i.id));
-  const res={};
-  fors.forEach(f=>{res[f.nome]={items:[],total:0};});
-  itens.forEach(item=>{
-    let best=null,bestPrice=Infinity;
-    fors.forEach(f=>{const p=precs.find(pr=>pr.item_id===item.id&&pr.fornecedor_id===f.id);if(p&&p.preco_unitario>0&&p.preco_unitario<bestPrice){bestPrice=p.preco_unitario;best=f.nome;}});
-    if(best){res[best].items.push({nome:item.nome,cod:item.codigo,qty:item.quantidade,unit:item.unidade,up:bestPrice,sub:bestPrice*item.quantidade});res[best].total+=bestPrice*item.quantidade;}
-  });
-  const totalGeral=fors.reduce((a,f)=>a+res[f.nome].total,0);
-  document.getElementById('detalhe-metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">Total geral</div><div class="metric-value green">${fmt(totalGeral)}</div></div>
-    <div class="metric"><div class="metric-label">Fornecedores</div><div class="metric-value">${fors.length}</div></div>
-    <div class="metric"><div class="metric-label">Itens</div><div class="metric-value">${itens.length}</div></div>`;
-  let cards='';
-  fors.sort((a,b)=>res[b.nome].total-res[a.nome].total).forEach(f=>{
-    if(!res[f.nome].items.length)return;
-    cards+=`<div class="sup-card"><div class="sup-hdr"><div class="sup-name">${f.nome}</div><div class="sup-total">${fmt(res[f.nome].total)}</div></div>`;
-    res[f.nome].items.forEach(it=>{
-      cards+=`<div class="item-row"><div class="item-name">${it.nome}</div><div class="item-prices"><span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span><span style="font-weight:700">${fmt(it.sub)}</span><span class="badge badge-green">Mais barato</span></div></div>`;
+async function verDetalhe(cId, nome) {
+  // Esconde lista, mostra detalhe
+  document.getElementById('historico-card').style.display = 'none';
+  const det = document.getElementById('detalhe-cotacao');
+  det.style.display = 'block';
+  document.getElementById('detalhe-titulo').textContent = nome;
+  document.getElementById('detalhe-metrics').innerHTML = '<div class="empty"><span class="spinner"></span> Carregando...</div>';
+  document.getElementById('detalhe-cards').innerHTML = '';
+
+  try {
+    // 1. Buscar itens da cotação
+    const { data: itens, error: e1 } = await sb.from('itens').select('*').eq('cotacao_id', cId);
+    if (e1) throw new Error('Erro ao buscar itens: ' + e1.message);
+
+    // 2. Buscar fornecedores da cotação
+    const { data: fors, error: e2 } = await sb.from('fornecedores').select('*').eq('cotacao_id', cId);
+    if (e2) throw new Error('Erro ao buscar fornecedores: ' + e2.message);
+
+    const itensArr = itens || [];
+    const forsArr  = fors  || [];
+
+    // 3. Buscar preços — só busca se tem itens
+    let precsArr = [];
+    if (itensArr.length > 0) {
+      const itemIds = itensArr.map(i => i.id);
+      const { data: precs, error: e3 } = await sb.from('precos').select('*').in('item_id', itemIds);
+      if (e3) throw new Error('Erro ao buscar preços: ' + e3.message);
+      precsArr = precs || [];
+    }
+
+    // 4. Recalcular resultado (menor preço por item)
+    const res = {};
+    forsArr.forEach(f => { res[f.nome] = { items: [], total: 0 }; });
+
+    itensArr.forEach(item => {
+      let best = null, bestPrice = Infinity;
+      forsArr.forEach(f => {
+        const p = precsArr.find(pr => pr.item_id === item.id && pr.fornecedor_id === f.id);
+        if (p && parseFloat(p.preco_unitario) > 0 && parseFloat(p.preco_unitario) < bestPrice) {
+          bestPrice = parseFloat(p.preco_unitario);
+          best = f.nome;
+        }
+      });
+      if (best) {
+        const qty = parseFloat(item.quantidade) || 1;
+        res[best].items.push({
+          nome: item.nome,
+          cod:  item.codigo || '',
+          qty,
+          unit: item.unidade || 'un',
+          up:   bestPrice,
+          sub:  bestPrice * qty
+        });
+        res[best].total += bestPrice * qty;
+      }
     });
-    cards+='</div>';
-  });
-  document.getElementById('detalhe-cards').innerHTML=cards;
+
+    const totalGeral  = forsArr.reduce((a, f) => a + (res[f.nome]?.total || 0), 0);
+    const itensCotados = itensArr.filter(item => forsArr.some(f => res[f.nome]?.items.some(it => it.nome === item.nome))).length;
+
+    // 5. Renderizar métricas
+    document.getElementById('detalhe-metrics').innerHTML = `
+      <div class="metric"><div class="metric-label">Total geral</div><div class="metric-value green">${fmt(totalGeral)}</div></div>
+      <div class="metric"><div class="metric-label">Fornecedores</div><div class="metric-value">${forsArr.length}</div></div>
+      <div class="metric"><div class="metric-label">Itens</div><div class="metric-value">${itensArr.length}</div></div>
+      <div class="metric"><div class="metric-label">Com preço</div><div class="metric-value">${itensCotados}</div></div>
+    `;
+
+    // 6. Renderizar cards por fornecedor
+    let cards = '';
+    [...forsArr].sort((a, b) => (res[b.nome]?.total || 0) - (res[a.nome]?.total || 0)).forEach(f => {
+      if (!res[f.nome]?.items.length) return;
+      cards += `<div class="sup-card">
+        <div class="sup-hdr">
+          <div class="sup-name">${f.nome}</div>
+          <div class="sup-total">${fmt(res[f.nome].total)}</div>
+        </div>`;
+      res[f.nome].items.forEach(it => {
+        cards += `<div class="item-row">
+          <div class="item-name">
+            ${it.cod ? `<span style="color:var(--text3);font-size:11px">${it.cod} · </span>` : ''}
+            ${it.nome}
+          </div>
+          <div class="item-prices">
+            <span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span>
+            <span style="font-weight:700">${fmt(it.sub)}</span>
+            <span class="badge badge-green">Mais barato</span>
+          </div>
+        </div>`;
+      });
+      cards += '</div>';
+    });
+
+    // Fornecedores sem nenhum item vencedor
+    forsArr.forEach(f => {
+      if (!res[f.nome]?.items.length) {
+        cards += `<div class="sup-card" style="opacity:.5">
+          <div class="sup-hdr">
+            <div class="sup-name">${f.nome}</div>
+            <span class="badge badge-gray">Nenhum item mais barato</span>
+          </div>
+        </div>`;
+      }
+    });
+
+    if (!cards) {
+      cards = '<div class="empty">Nenhum preço foi registrado nesta cotação.</div>';
+    }
+
+    document.getElementById('detalhe-cards').innerHTML = cards;
+
+  } catch (err) {
+    document.getElementById('detalhe-metrics').innerHTML = `<div class="alert alert-err">Erro ao carregar: ${err.message}</div>`;
+    console.error('verDetalhe error:', err);
+  }
 }
 
 function fecharDetalhe() {
