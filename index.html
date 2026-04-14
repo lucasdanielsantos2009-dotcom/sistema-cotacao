@@ -290,15 +290,29 @@
       <div class="card">
         <div class="card-title"><span class="step-num">4</span> Preencher preços por fornecedor</div>
         <div id="price-wrap"><div class="empty">Adicione itens e fornecedores para preencher os preços.</div></div>
-        <div class="form-row" style="margin-top:14px;">
-          <button class="btn btn-primary" onclick="calcular()">
+        <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          <!-- Botão 1: Liberar para fornecedores (aparece ao ter itens + fornecedores) -->
+          <button class="btn" id="btn-liberar" style="display:none;background:#f0fdf4;color:#166534;border-color:#86efac;font-weight:600;" onclick="liberarParaFornecedores()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+            Liberar para fornecedores
+          </button>
+
+          <!-- Divisor -->
+          <div id="btn-divisor" style="display:none;width:1px;height:28px;background:var(--border);margin:0 4px;"></div>
+
+          <!-- Botão 2: Calcular melhor oferta -->
+          <button class="btn btn-primary" id="btn-calcular" onclick="calcular()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             Calcular melhor oferta
           </button>
+
+          <!-- Botão 3: Finalizar cotação (aparece após calcular) -->
           <button class="btn btn-green" id="btn-salvar" style="display:none;" onclick="salvarCotacao()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            Salvar e liberar para fornecedores
+            Finalizar cotação
           </button>
+
+          <!-- Exportar (aparecem após calcular) -->
           <button class="btn" id="btn-pdf" style="display:none;" onclick="exportarPDF()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             Exportar PDF
@@ -1798,11 +1812,18 @@ function removeProduct(i) {
 }
 
 function atualizarBtnSalvar() {
-  const btn = document.getElementById('btn-salvar');
-  if (!btn) return;
   const temItens = products.length > 0;
   const temForn  = suppliers.length > 0;
-  btn.style.display = (temItens && temForn) ? 'inline-flex' : 'none';
+  const mostrar  = temItens && temForn;
+
+  // Botão "Liberar para fornecedores" — aparece com itens + fornecedores
+  const btnLiberar = document.getElementById('btn-liberar');
+  if (btnLiberar) btnLiberar.style.display = mostrar ? 'inline-flex' : 'none';
+
+  const divisor = document.getElementById('btn-divisor');
+  if (divisor) divisor.style.display = mostrar ? 'block' : 'none';
+
+  // Botão "Finalizar" e exportar — só aparecem após calcular (controlados por calcular())
 }
 
 function renderProductTags() {
@@ -1872,6 +1893,64 @@ function setPrice(s,p,v){
   if(!prices[s])prices[s]={};
   const n=parseFloat(String(v).replace(',','.'));
   if(!isNaN(n) && n>=0) prices[s][p]=n;
+}
+
+async function liberarParaFornecedores() {
+  if (!products.length || !suppliers.length) {
+    toast('Adicione itens e fornecedores antes de liberar.');
+    return;
+  }
+
+  const nome = document.getElementById('cotacao-nome').value.trim() || ('Cotação ' + new Date().toLocaleDateString('pt-BR'));
+  const btn = document.getElementById('btn-liberar');
+  const btnOriginal = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> Liberando...';
+  btn.disabled = true;
+
+  if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') {
+    toast('Configure o Supabase para salvar.');
+    btn.innerHTML = btnOriginal;
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    const { data: { user } } = await sb.auth.getUser();
+
+    // Salvar cotação
+    const { data: cotacao, error: e1 } = await sb.from('cotacoes')
+      .insert({ nome, user_id: user?.id })
+      .select().single();
+    if (e1) throw e1;
+
+    // Salvar itens
+    const { data: itensIns, error: e2 } = await sb.from('itens')
+      .insert(products.map(p => ({ cotacao_id: cotacao.id, codigo: p.cod, nome: p.nome, quantidade: p.qty, unidade: p.unit })))
+      .select();
+    if (e2) throw e2;
+
+    // Salvar fornecedores
+    const { data: supsIns, error: e3 } = await sb.from('fornecedores')
+      .insert(suppliers.map(s => ({ cotacao_id: cotacao.id, nome: s })))
+      .select();
+    if (e3) throw e3;
+
+    // Vincular user_id dos fornecedores cadastrados
+    await vincularFornecedoresNaCotacao(cotacao.id);
+
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Liberado!';
+    btn.style.background = '#166534';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#166534';
+    btn.disabled = true;
+
+    toast(`Cotação "${nome}" liberada! Os fornecedores já podem preencher os preços.`);
+
+  } catch(err) {
+    toast('Erro ao liberar: ' + err.message);
+    btn.innerHTML = btnOriginal;
+    btn.disabled = false;
+  }
 }
 
 function calcular() {
@@ -2105,9 +2184,18 @@ function limparTudo() {
   document.getElementById('btn-salvar').style.display='none';
   document.getElementById('btn-pdf').style.display='none';
   document.getElementById('btn-excel').style.display='none';
+  document.getElementById('btn-liberar').style.display='none';
+  document.getElementById('btn-divisor').style.display='none';
+  // Reset liberar button state
+  const bl = document.getElementById('btn-liberar');
+  if (bl) {
+    bl.disabled=false;
+    bl.style.background='#f0fdf4'; bl.style.color='#166534'; bl.style.borderColor='#86efac';
+    bl.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> Liberar para fornecedores';
+  }
   document.getElementById('cotacao-nome').value='';
   const bs=document.getElementById('btn-salvar');
-  bs.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar e liberar para fornecedores';
+  bs.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Finalizar cotação';
   bs.style.background=''; bs.disabled=false;
   renderPriceTable(); toast('Tudo limpo!');
 }
