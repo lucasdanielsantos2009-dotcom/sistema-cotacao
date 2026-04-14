@@ -2464,15 +2464,20 @@ async function carregarHistorico() {
     }
 
     const row = document.createElement('div');
+    row.id = 'hist-row-' + c.id;
     row.className = 'hist-row';
     row.innerHTML =
-      '<div>' +
+      '<div style="flex:1;min-width:0;">' +
         '<div class="hist-name">' + c.nome + '</div>' +
         '<div class="hist-meta">' + new Date(c.criado_em).toLocaleString('pt-BR') + prazoInfo + '</div>' +
       '</div>' +
-      '<div style="display:flex;gap:8px;align-items:center;">' +
+      '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">' +
         '<span id="notif-cot-' + c.id + '" style="display:none;background:#ebfbee;color:#2f9e44;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;"></span>' +
         '<button class="btn btn-sm" id="btn-hist-' + c.id + '">Ver resultado</button>' +
+        '<button class="btn btn-sm btn-danger" id="btn-del-cot-' + c.id + '" title="Excluir cotação">' +
+          '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>' +
+          ' Excluir' +
+        '</button>' +
       '</div>';
     lista.appendChild(row);
 
@@ -2486,8 +2491,49 @@ async function carregarHistorico() {
 
     const cId = c.id;
     const cNome = c.nome;
+
+    // Botão ver resultado
     document.getElementById('btn-hist-' + cId).addEventListener('click', function() {
       verDetalhe(cId, cNome);
+    });
+
+    // Botão excluir
+    document.getElementById('btn-del-cot-' + cId).addEventListener('click', async function() {
+      if (!confirm('Excluir a cotação "' + cNome + '"?
+
+Todos os itens, preços e fornecedores vinculados serão removidos permanentemente e não aparecerão mais no Dashboard.')) return;
+
+      const btn = this;
+      btn.innerHTML = '<span class="spinner"></span>';
+      btn.disabled = true;
+
+      try {
+        // Excluir em cascata (ON DELETE CASCADE já configurado no banco)
+        const { error } = await sb.from('cotacoes').delete().eq('id', cId);
+        if (error) throw error;
+
+        // Remover linha da tela
+        const rowEl = document.getElementById('hist-row-' + cId);
+        if (rowEl) rowEl.remove();
+
+        toast('Cotação "' + cNome + '" excluída.');
+
+        // Verificar se lista ficou vazia
+        const listaEl = document.getElementById('historico-lista');
+        if (listaEl && !listaEl.children.length) {
+          listaEl.innerHTML = '<div class="empty">Nenhuma cotação salva ainda.</div>';
+        }
+
+        // Atualizar dashboard se estiver aberto
+        if (document.getElementById('page-dashboard')?.classList.contains('active')) {
+          carregarDashboard();
+        }
+
+      } catch(err) {
+        toast('Erro ao excluir: ' + err.message);
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg> Excluir';
+        btn.disabled = false;
+      }
     });
   });
 }
