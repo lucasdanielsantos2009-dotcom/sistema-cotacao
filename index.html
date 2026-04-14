@@ -1306,11 +1306,16 @@ async function carregarCotacoesFornecedor(user) {
         );
 
       lista.appendChild(card);
+
+      // Usar querySelector no próprio card (evita null se DOM ainda não renderizou)
       const cotId = cot.id, fornId = vinculo.id, cotNome = cot.nome;
       const bloqueado = jaEnviou;
-      document.getElementById('btn-cot-' + cotId).addEventListener('click', () => {
-        if (!bloqueado) abrirCotacaoFornecedor(cotId, fornId, cotNome, totalItens);
-      });
+      const btnCot = card.querySelector('#btn-cot-' + cotId);
+      if (btnCot && !bloqueado) {
+        btnCot.addEventListener('click', () => {
+          abrirCotacaoFornecedor(cotId, fornId, cotNome, totalItens);
+        });
+      }
     }
   } catch(err) {
     wrap.innerHTML = '<div class="alert alert-err">Erro: ' + err.message + '</div>';
