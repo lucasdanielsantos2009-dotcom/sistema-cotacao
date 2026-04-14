@@ -455,7 +455,7 @@
 let sb;
 try { sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
 
-let products = [], suppliers = [], prices = {}, pendingImport = [], resultadoAtual = null;
+let products = [], suppliers = [], prices = {}, pendingImport = [], resultadoAtual = null, cotacaoAtualId = null;
 
 
 // ─── Exportar Excel ───────────────────────────────────────────────────────────
@@ -1974,6 +1974,9 @@ async function liberarParaFornecedores() {
     // Vincular user_id dos fornecedores cadastrados
     await vincularFornecedoresNaCotacao(cotacao.id);
 
+    // Salvar ID da cotação para uso posterior no calcular
+    cotacaoAtualId = cotacao.id;
+
     btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Liberado!';
     btn.style.background = '#166534';
     btn.style.color = '#fff';
@@ -1989,10 +1992,62 @@ async function liberarParaFornecedores() {
   }
 }
 
-function calcular() {
+async function calcular() {
   if(!suppliers.length||!products.length){toast('Adicione itens e fornecedores primeiro.');return;}
 
-  // Garante que todos os valores digitados nos inputs estão salvos em prices
+  // Se a cotação foi liberada para fornecedores, busca preços do banco
+  if (cotacaoAtualId && sb) {
+    const btnCalc = document.getElementById('btn-calcular');
+    const orig = btnCalc ? btnCalc.innerHTML : '';
+    if (btnCalc) { btnCalc.innerHTML = '<span class="spinner"></span> Buscando preços...'; btnCalc.disabled = true; }
+
+    try {
+      // Buscar fornecedores da cotação com seus IDs
+      const { data: forsDB } = await sb.from('fornecedores').select('*').eq('cotacao_id', cotacaoAtualId);
+      // Buscar itens
+      const { data: itensDB } = await sb.from('itens').select('*').eq('cotacao_id', cotacaoAtualId);
+      // Buscar todos os preços
+      const itemIds = (itensDB||[]).map(i => i.id);
+      let precosDB = [];
+      if (itemIds.length) {
+        const { data: pd } = await sb.from('precos').select('*').in('item_id', itemIds);
+        precosDB = pd || [];
+      }
+
+      // Montar prices a partir do banco
+      prices = {};
+      (forsDB||[]).forEach(f => {
+        prices[f.nome] = {};
+        (itensDB||[]).forEach(item => {
+          const p = precosDB.find(pr => pr.item_id === item.id && pr.fornecedor_id === f.id);
+          if (p && p.preco_unitario > 0) {
+            prices[f.nome][item.nome] = parseFloat(p.preco_unitario);
+          }
+        });
+      });
+
+      // Atualizar suppliers e products com dados do banco caso não estejam em memória
+      if (!products.length && itensDB?.length) {
+        products = itensDB.map(i => ({ cod: i.codigo||'', nome: i.nome, qty: parseFloat(i.quantidade)||1, unit: i.unidade||'un' }));
+      }
+      if (!suppliers.length && forsDB?.length) {
+        suppliers = forsDB.map(f => f.nome);
+      }
+
+      // Atualizar tabela de preços na tela
+      renderProductTags();
+      renderSupplierTags();
+      renderPriceTable();
+
+      toast('Preços dos fornecedores carregados do banco!');
+    } catch(err) {
+      toast('Erro ao buscar preços: ' + err.message);
+    } finally {
+      if (btnCalc) { btnCalc.innerHTML = orig; btnCalc.disabled = false; }
+    }
+  }
+
+  // Lê preços digitados manualmente na tabela (se houver)
   document.querySelectorAll('#price-wrap input[data-s]').forEach(inp=>{
     const s=inp.getAttribute('data-s'), p=inp.getAttribute('data-p');
     const n=parseFloat(String(inp.value).replace(',','.'));
@@ -2151,6 +2206,37 @@ async function verDetalhe(cId, nome) {
       <div class="metric"><div class="metric-label">Com preço</div><div class="metric-value">${itensCotados}</div></div>
     `;
 
+    // Botão recalcular direto do histórico
+    const btnRecalc = document.createElement('button');
+    btnRecalc.className = 'btn btn-primary';
+    btnRecalc.style.marginBottom = '1rem';
+    btnRecalc.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Recalcular melhor oferta';
+    btnRecalc.addEventListener('click', async function() {
+      btnRecalc.innerHTML = '<span class="spinner"></span> Calculando...';
+      btnRecalc.disabled = true;
+      // Carregar dados do banco nesta cotação
+      products = itensArr.map(i => ({ cod: i.codigo||'', nome: i.nome, qty: parseFloat(i.quantidade)||1, unit: i.unidade||'un' }));
+      suppliers = forsArr.map(f => f.nome);
+      prices = {};
+      forsArr.forEach(f => {
+        prices[f.nome] = {};
+        itensArr.forEach(item => {
+          const p = precsArr.find(pr => pr.item_id === item.id && pr.fornecedor_id === f.id);
+          if (p && p.preco_unitario > 0) prices[f.nome][item.nome] = parseFloat(p.preco_unitario);
+        });
+      });
+      cotacaoAtualId = cId;
+      // Navegar para nova cotação e calcular
+      navTo('nova-cotacao', 'nav-nova');
+      renderProductTags();
+      renderSupplierTags();
+      renderPriceTable();
+      await calcular();
+      btnRecalc.innerHTML = 'Recalcular melhor oferta';
+      btnRecalc.disabled = false;
+    });
+    document.getElementById('detalhe-cards').before(btnRecalc);
+
     // 6. Renderizar cards por fornecedor
     let cards = '';
     [...forsArr].sort((a, b) => (res[b.nome]?.total || 0) - (res[a.nome]?.total || 0)).forEach(f => {
@@ -2213,7 +2299,7 @@ function toast(msg) {
 }
 
 function limparTudo() {
-  products=[]; suppliers=[]; prices={}; pendingImport=[]; resultadoAtual=null;
+  products=[]; suppliers=[]; prices={}; pendingImport=[]; resultadoAtual=null; cotacaoAtualId=null;
   ['product-tags','supplier-tags','import-msg'].forEach(id=>document.getElementById(id).innerHTML='');
   document.getElementById('preview-wrap').style.display='none';
   document.getElementById('resultado').style.display='none';
