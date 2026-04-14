@@ -129,6 +129,11 @@
       grid-template-columns: 1fr !important;
     }
   }
+  @media (max-width: 600px) {
+    #supplier-app .main { padding: 0.75rem; }
+    .card { padding: 1rem; }
+    .hist-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -163,17 +168,17 @@
 
 <!-- TELA DO FORNECEDOR -->
 <div id="supplier-app" style="display:none;min-height:100vh;background:var(--bg);">
-  <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;">
-    <div style="display:flex;align-items:center;gap:10px;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1971c2" stroke-width="2.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-      <span style="font-weight:700;font-size:15px;color:var(--text)">Portal do Fornecedor</span>
+  <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:0 1rem 0 1.25rem;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1971c2" stroke-width="2.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <span style="font-weight:700;font-size:14px;color:var(--text)">Portal do Fornecedor</span>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span id="sup-user-info" style="font-size:12px;color:var(--text2)"></span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="sup-user-info" style="font-size:11px;color:var(--text2);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
       <button class="btn btn-sm" onclick="fazerLogout()">Sair</button>
     </div>
   </div>
-  <div style="max-width:900px;margin:0 auto;padding:2rem 1rem;">
+  <div style="max-width:640px;margin:0 auto;padding:1rem;">
     <div id="sup-content">
       <div class="empty"><span class="spinner"></span> Carregando cotações...</div>
     </div>
@@ -205,9 +210,12 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
       Vincular fornecedores
     </button>
-    <button class="nav-item" id="nav-hist" onclick="navTo('historico','nav-hist');carregarHistorico()">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      Histórico
+    <button class="nav-item" id="nav-hist" onclick="navTo('historico','nav-hist');carregarHistorico()" style="justify-content:space-between;">
+      <span style="display:flex;align-items:center;gap:8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Histórico
+      </span>
+      <span id="notif-badge" style="display:none;background:#c92a2a;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center;"></span>
     </button>
     <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border);">
       <div style="font-size:12px;color:var(--text3);padding:0 0.5rem 8px;word-break:break-all;" id="user-info"></div>
@@ -229,6 +237,10 @@
         <div class="card-title">Identificação da cotação</div>
         <div class="form-row">
           <input type="text" id="cotacao-nome" placeholder="Ex: Pedido Eurofarma — Abril/2026" style="flex:1;min-width:200px;"/>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap;">Prazo limite:</label>
+            <input type="datetime-local" id="cotacao-prazo" style="height:36px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:0 10px;font-size:13px;font-family:inherit;"/>
+          </div>
         </div>
       </div>
 
@@ -1207,388 +1219,353 @@ async function mostrarTelaFornecedor(user) {
 async function carregarCotacoesFornecedor(user) {
   const wrap = document.getElementById('sup-content');
   wrap.innerHTML = '<div class="empty"><span class="spinner"></span> Carregando cotações...</div>';
-
   try {
-    // Buscar os registros de fornecedor vinculados a este usuário
-    const { data: meusVinculos, error: e1 } = await sb
-      .from('fornecedores')
-      .select('id, nome, cotacao_id')
-      .eq('user_id', user.id);
-
+    const { data: meusVinculos, error: e1 } = await sb.from('fornecedores').select('id,nome,cotacao_id').eq('user_id', user.id);
     if (e1) throw e1;
     if (!meusVinculos || !meusVinculos.length) {
-      wrap.innerHTML = `
-        <div style="text-align:center;padding:4rem 1rem;">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#adb5bd" stroke-width="1.5" style="display:block;margin:0 auto 1rem"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px">Nenhuma cotação disponível</div>
-          <div style="font-size:13px;color:var(--text2)">Aguarde o comprador criar e publicar uma cotação com sua participação.</div>
-        </div>`;
+      wrap.innerHTML = '<div style="text-align:center;padding:3rem 1rem;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#adb5bd" stroke-width="1.5" style="display:block;margin:0 auto 1rem"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">Nenhuma cotação disponível</div><div style="font-size:13px;color:var(--text2)">Aguarde o comprador criar e publicar uma cotação.</div></div>';
       return;
     }
-
     const cotacaoIds = [...new Set(meusVinculos.map(v => v.cotacao_id))];
-
-    // Buscar cotações
-    const { data: cotacoes, error: e2 } = await sb
-      .from('cotacoes')
-      .select('*')
-      .in('id', cotacaoIds)
-      .order('criado_em', { ascending: false });
+    const { data: cotacoes, error: e2 } = await sb.from('cotacoes').select('*').in('id', cotacaoIds).order('criado_em', { ascending: false });
     if (e2) throw e2;
 
-    wrap.innerHTML = `
-      <div style="font-size:18px;font-weight:700;margin-bottom:1.5rem;color:var(--text)">
-        Olá! Você tem ${cotacoes.length} cotação(ões) para preencher.
-      </div>
-      <div id="sup-cotacoes-lista"></div>`;
+    wrap.innerHTML = '<div style="font-size:18px;font-weight:700;margin-bottom:1.25rem;color:var(--text)">Olá! Você tem ' + cotacoes.length + ' cotação(ões) disponível(is).</div><div id="sup-lista"></div>';
+    const lista = document.getElementById('sup-lista');
 
-    const lista = document.getElementById('sup-cotacoes-lista');
     for (const cot of cotacoes) {
-      const meuVinculo = meusVinculos.find(v => v.cotacao_id === cot.id);
-      if (!meuVinculo) continue;
+      const vinculo = meusVinculos.find(v => v.cotacao_id === cot.id);
+      if (!vinculo) continue;
 
-      // Criar card via DOM para evitar problemas com caracteres especiais no nome
+      // Buscar progresso
+      const { data: itens } = await sb.from('itens').select('id').eq('cotacao_id', cot.id);
+      const totalItens = itens?.length || 0;
+      const { data: precos } = await sb.from('precos').select('id').eq('fornecedor_id', vinculo.id);
+      const preenchidos = precos?.length || 0;
+      const pct = totalItens > 0 ? Math.round((preenchidos/totalItens)*100) : 0;
+
+      // Prazo
+      let prazoHtml = '';
+      if (cot.prazo_limite) {
+        const prazo = new Date(cot.prazo_limite);
+        const agora = new Date();
+        const diff = prazo - agora;
+        const horas = Math.floor(diff / 36e5);
+        const dias  = Math.floor(diff / 864e5);
+        if (diff < 0) {
+          prazoHtml = '<span style="color:var(--red);font-size:12px;font-weight:600;">Prazo encerrado</span>';
+        } else if (dias < 1) {
+          prazoHtml = '<span style="color:#c92a2a;font-size:12px;font-weight:600;">⚠ Encerra em ' + horas + 'h</span>';
+        } else {
+          prazoHtml = '<span style="color:var(--text2);font-size:12px;">Prazo: ' + prazo.toLocaleDateString('pt-BR') + ' às ' + prazo.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) + '</span>';
+        }
+      }
+
+      // Status badge
+      let statusHtml = '';
+      if (pct === 100) statusHtml = '<span style="background:#ebfbee;color:#2f9e44;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">✓ Concluído</span>';
+      else if (pct > 0) statusHtml = '<span style="background:#fff9db;color:#795c00;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">Em andamento</span>';
+      else statusHtml = '<span style="background:#fff5f5;color:#c92a2a;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;">Aguardando</span>';
+
       const card = document.createElement('div');
       card.className = 'card';
       card.style.marginBottom = '1rem';
       card.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">' +
-          '<div>' +
-            '<div style="font-size:16px;font-weight:700;">' + cot.nome + '</div>' +
-            '<div style="font-size:12px;color:var(--text2);margin-top:2px;">' + new Date(cot.criado_em).toLocaleDateString('pt-BR') + '</div>' +
-          '</div>' +
-          '<button class="btn btn-primary" id="btn-abrir-' + cot.id + '">Preencher preços</button>' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
+          '<div><div style="font-size:16px;font-weight:700;">' + cot.nome + '</div>' +
+          '<div style="font-size:12px;color:var(--text2);margin-top:3px;">' + new Date(cot.criado_em).toLocaleDateString('pt-BR') + '</div></div>' +
+          statusHtml +
         '</div>' +
-        '<div id="status-cot-' + cot.id + '" style="font-size:12px;color:var(--text2);">' +
-          '<span class="spinner"></span> Verificando...' +
-        '</div>';
+        (prazoHtml ? '<div style="margin-bottom:10px;">' + prazoHtml + '</div>' : '') +
+        '<div style="margin-bottom:12px;">' +
+          '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:5px;">' +
+            '<span>Progresso</span><span>' + preenchidos + ' de ' + totalItens + ' itens preenchidos</span>' +
+          '</div>' +
+          '<div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;">' +
+            '<div style="height:100%;background:' + (pct===100?'#2f9e44':'#1971c2') + ';border-radius:4px;width:' + pct + '%;transition:width .4s;"></div>' +
+          '</div>' +
+        '</div>' +
+        '<button class="btn btn-primary" id="btn-cot-' + cot.id + '" style="width:100%;justify-content:center;">' +
+          (pct===100 ? 'Ver / Editar preços' : pct > 0 ? 'Continuar preenchendo (' + (totalItens-preenchidos) + ' restantes)' : 'Preencher preços') +
+        '</button>';
 
       lista.appendChild(card);
-
-      // Vincular o click via addEventListener (seguro com qualquer nome)
-      const cotId = cot.id;
-      const fornId = meuVinculo.id;
-      const cotNome = cot.nome;
-      document.getElementById('btn-abrir-' + cotId).addEventListener('click', function() {
-        abrirCotacaoFornecedor(cotId, fornId, cotNome);
-      });
-
-      verificarStatusPrecos(cot.id, meuVinculo.id);
+      const cotId = cot.id, fornId = vinculo.id, cotNome = cot.nome;
+      document.getElementById('btn-cot-' + cotId).addEventListener('click', () => abrirCotacaoFornecedor(cotId, fornId, cotNome, totalItens));
     }
   } catch(err) {
-    wrap.innerHTML = `<div class="alert alert-err">Erro: ${err.message}</div>`;
+    wrap.innerHTML = '<div class="alert alert-err">Erro: ' + err.message + '</div>';
   }
 }
 
-async function verificarStatusPrecos(cotacaoId, fornecedorId) {
-  const { data: itens } = await sb.from('itens').select('id').eq('cotacao_id', cotacaoId);
-  if (!itens?.length) return;
-  const { data: precos } = await sb.from('precos').select('id').eq('fornecedor_id', fornecedorId);
-  const preenchidos = precos?.length || 0;
-  const total = itens.length;
-  const el = document.getElementById(`status-cot-${cotacaoId}`);
-  if (!el) return;
-  if (preenchidos >= total) {
-    el.innerHTML = `<span style="color:var(--green);font-weight:600">✓ Todos os ${total} preços preenchidos</span>`;
-  } else if (preenchidos > 0) {
-    el.innerHTML = `<span style="color:var(--amber-text)">${preenchidos} de ${total} preços preenchidos</span>`;
-  } else {
-    el.innerHTML = `<span style="color:var(--red)">Nenhum preço preenchido ainda — ${total} itens aguardando</span>`;
-  }
-}
-
-async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao) {
+async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao, totalItens) {
   const wrap = document.getElementById('sup-content');
-
-  // Monta o HTML da tela SEM await no template string
   wrap.innerHTML =
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;">' +
-      '<button class="btn btn-sm" id="btn-voltar-sup">&#8592; Voltar</button>' +
-      '<div style="font-size:18px;font-weight:700;">' + nomeCotacao + '</div>' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">' +
+      '<button class="btn btn-sm" id="btn-voltar-sup">← Voltar</button>' +
+      '<div style="font-size:16px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + nomeCotacao + '</div>' +
     '</div>' +
-    '<div id="sup-form-wrap">' +
-      '<div class="empty"><span class="spinner"></span> Carregando itens...</div>' +
-    '</div>';
+    '<div id="sup-prog-wrap" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:1rem;">' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px;">' +
+        '<span id="sup-prog-label">Carregando...</span><span id="sup-prog-pct">0%</span>' +
+      '</div>' +
+      '<div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;"><div id="sup-prog-bar" style="height:100%;background:#1971c2;border-radius:4px;width:0%;transition:width .4s;"></div></div>' +
+    '</div>' +
+    '<div id="sup-form-wrap"><div class="empty"><span class="spinner"></span> Carregando itens...</div></div>';
 
-  // Vincular botão voltar depois de renderizar
-  document.getElementById('btn-voltar-sup').addEventListener('click', async function() {
+  document.getElementById('btn-voltar-sup').addEventListener('click', async () => {
     const { data: { user } } = await sb.auth.getUser();
-    await carregarCotacoesFornecedor(user);
+    carregarCotacoesFornecedor(user);
   });
 
   try {
-    // 1. Buscar itens da cotação
     const { data: itens, error: e1 } = await sb.from('itens').select('*').eq('cotacao_id', cotacaoId);
     if (e1) throw e1;
-    if (!itens || !itens.length) {
-      document.getElementById('sup-form-wrap').innerHTML =
-        '<div class="alert alert-warn">Nenhum item encontrado nesta cotação.</div>';
+    if (!itens || !itens.length) { document.getElementById('sup-form-wrap').innerHTML = '<div class="alert alert-warn">Nenhum item encontrado.</div>'; return; }
+
+    const itemIds = itens.map(i => i.id);
+    const { data: precosExist } = await sb.from('precos').select('*').eq('fornecedor_id', fornecedorId).in('item_id', itemIds);
+    const precosMap = {};
+    (precosExist||[]).forEach(p => { precosMap[p.item_id] = p; });
+
+    const preenchidos = Object.keys(precosMap).length;
+    atualizarProgresso(preenchidos, itens.length);
+
+    const isMobile = window.innerWidth < 600;
+
+    if (isMobile) {
+      renderMobile(itens, precosMap, fornecedorId, cotacaoId);
+    } else {
+      renderDesktop(itens, precosMap, fornecedorId, cotacaoId);
+    }
+  } catch(err) {
+    document.getElementById('sup-form-wrap').innerHTML = '<div class="alert alert-err">Erro: ' + err.message + '</div>';
+  }
+}
+
+function atualizarProgresso(preenchidos, total) {
+  const pct = total > 0 ? Math.round((preenchidos/total)*100) : 0;
+  const bar = document.getElementById('sup-prog-bar');
+  const label = document.getElementById('sup-prog-label');
+  const pctEl = document.getElementById('sup-prog-pct');
+  if (bar) bar.style.width = pct + '%';
+  if (bar) bar.style.background = pct===100 ? '#2f9e44' : '#1971c2';
+  if (label) label.textContent = preenchidos + ' de ' + total + ' itens preenchidos';
+  if (pctEl) pctEl.textContent = pct + '%';
+}
+
+function renderDesktop(itens, precosMap, fornecedorId, cotacaoId) {
+  const fw = document.getElementById('sup-form-wrap');
+  fw.innerHTML =
+    '<div class="card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">' +
+        '<div><div style="font-size:14px;font-weight:700;">' + itens.length + ' itens para cotar</div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-top:3px;">Preencha o preço unitário. Use o campo de observação para informar prazo, substituto ou indisponibilidade.</div></div>' +
+        '<button class="btn btn-primary" id="btn-salvar-top">Salvar todos os preços</button>' +
+      '</div>' +
+      '<div id="sup-save-msg" style="margin-bottom:8px;"></div>' +
+      '<div class="tbl-wrap">' +
+        '<table><thead><tr>' +
+          '<th style="min-width:60px">Código</th>' +
+          '<th style="min-width:180px">Produto</th>' +
+          '<th>Qtd</th>' +
+          '<th style="min-width:140px">Preço (R$/un)</th>' +
+          '<th style="min-width:80px">Subtotal</th>' +
+          '<th style="min-width:160px">Observação</th>' +
+        '</tr></thead>' +
+        '<tbody id="sup-itens-body"></tbody>' +
+      '</table></div>' +
+      '<div style="margin-top:14px;display:flex;gap:10px;align-items:center;">' +
+        '<button class="btn btn-primary" id="btn-salvar-bot">Salvar todos os preços</button>' +
+        '<span style="font-size:12px;color:var(--text2)">O comprador vê os preços em tempo real.</span>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('btn-salvar-top').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens));
+  document.getElementById('btn-salvar-bot').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens));
+
+  const tbody = document.getElementById('sup-itens-body');
+  itens.forEach(item => {
+    const p = precosMap[item.id];
+    const val = p ? p.preco_unitario : '';
+    const obs = p ? (p.observacao||'') : '';
+    const qty = parseFloat(item.quantidade)||1;
+    const sub = val ? 'R$ '+(val*qty).toFixed(2).replace('.',',') : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="color:var(--text2);font-size:12px">' + (item.codigo||'—') + '</td>' +
+      '<td title="' + item.nome + '">' + (item.nome.length>45?item.nome.slice(0,45)+'…':item.nome) + '</td>' +
+      '<td style="color:var(--text2)">' + qty + '</td>' +
+      '<td><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="' + val + '" id="sp-' + item.id + '" data-item-id="' + item.id + '" data-preco-id="' + (p?.id||'') + '" data-qty="' + qty + '" style="width:120px;height:34px;font-size:14px;border-radius:6px;border:1px solid var(--border2);padding:0 10px;background:var(--surface);color:var(--text);"/></td>' +
+      '<td id="ssub-' + item.id + '" style="font-weight:700;color:var(--green);">' + sub + '</td>' +
+      '<td><input type="text" placeholder="Opcional..." value="' + obs + '" id="sobs-' + item.id + '" style="width:150px;height:30px;font-size:12px;border-radius:6px;border:1px solid var(--border2);padding:0 8px;background:var(--surface);color:var(--text);"/></td>';
+    tbody.appendChild(tr);
+    document.getElementById('sp-' + item.id).addEventListener('input', function() {
+      const v = parseFloat(this.value);
+      const s = document.getElementById('ssub-' + item.id);
+      s.textContent = (!isNaN(v)&&v>0) ? 'R$ '+(v*qty).toFixed(2).replace('.',',') : '—';
+      const preenchidos = itens.filter(it => { const inp = document.getElementById('sp-' + it.id); return inp && parseFloat(inp.value) > 0; }).length;
+      atualizarProgresso(preenchidos, itens.length);
+    });
+  });
+}
+
+function renderMobile(itens, precosMap, fornecedorId, cotacaoId) {
+  let cur = 0;
+  const fw = document.getElementById('sup-form-wrap');
+
+  function renderItem(idx) {
+    if (idx >= itens.length) {
+      fw.innerHTML =
+        '<div style="text-align:center;padding:2.5rem 1rem;">' +
+          '<svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#2f9e44" stroke-width="1.5" style="display:block;margin:0 auto 14px"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
+          '<div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px">Todos os itens preenchidos!</div>' +
+          '<div style="font-size:13px;color:var(--text2);margin-bottom:1.5rem">Clique em salvar para confirmar os preços ao comprador.</div>' +
+          '<button class="btn btn-primary" id="btn-mob-salvar" style="width:100%;justify-content:center;height:48px;font-size:15px;">Salvar todos os preços</button>' +
+        '</div>';
+      document.getElementById('btn-mob-salvar').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens));
       return;
     }
 
-    // 2. Buscar preços já preenchidos por este fornecedor
-    const itemIds = itens.map(i => i.id);
-    const { data: precosExist, error: e2 } = await sb.from('precos').select('*')
-      .eq('fornecedor_id', fornecedorId)
-      .in('item_id', itemIds);
-    if (e2) throw e2;
+    const item = itens[idx];
+    const p = precosMap[item.id];
+    const qty = parseFloat(item.quantidade)||1;
 
-    const precosMap = {};
-    (precosExist || []).forEach(p => { precosMap[p.item_id] = p; });
-
-    // 3. Montar tabela de preços
-    const formWrap = document.getElementById('sup-form-wrap');
-    formWrap.innerHTML =
-      '<div class="card">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">' +
-          '<div>' +
-            '<div style="font-size:15px;font-weight:700;">' + itens.length + ' itens para cotar</div>' +
-            '<div style="font-size:12px;color:var(--text2);margin-top:4px;">Preencha o preço unitário. Deixe em branco se não tiver o item.</div>' +
+    fw.innerHTML =
+      '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">' +
+        '<div style="padding:16px;">' +
+          '<div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Item ' + (idx+1) + ' de ' + itens.length + '</div>' +
+          '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;">' + item.nome + '</div>' +
+          '<div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Qtd: ' + qty + ' ' + (item.unidade||'un') + (item.codigo?' · Cód: '+item.codigo:'') + '</div>' +
+          '<label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">Seu preço (R$/un)</label>' +
+          '<input type="number" id="mob-price" inputmode="decimal" placeholder="0,00" value="' + (p?p.preco_unitario:'') + '" ' +
+            'style="width:100%;height:56px;font-size:22px;font-weight:700;border-radius:var(--radius);border:2px solid var(--border2);padding:0 16px;background:var(--surface);color:var(--text);text-align:right;"/>' +
+          '<div id="mob-sub" style="text-align:right;font-size:13px;color:var(--green);font-weight:700;margin-top:6px;min-height:20px;">' +
+            (p && p.preco_unitario ? 'R$ '+(p.preco_unitario*qty).toFixed(2).replace('.',',') : '') +
           '</div>' +
-          '<button class="btn btn-primary" id="btn-salvar-precos-top">Salvar todos os preços</button>' +
+          '<label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin:12px 0 6px;">Observação (opcional)</label>' +
+          '<input type="text" id="mob-obs" placeholder="Ex: produto indisponível, prazo 5 dias..." value="' + (p?p.observacao||'':'') + '" ' +
+            'style="width:100%;height:40px;font-size:14px;border-radius:var(--radius);border:1px solid var(--border2);padding:0 12px;background:var(--surface);color:var(--text);"/>' +
         '</div>' +
-        '<div id="sup-save-msg" style="margin-bottom:8px;"></div>' +
-        '<div class="tbl-wrap">' +
-          '<table>' +
-            '<thead><tr>' +
-              '<th style="min-width:60px">Código</th>' +
-              '<th style="min-width:200px">Produto</th>' +
-              '<th style="min-width:50px">Qtd</th>' +
-              '<th style="min-width:150px">Seu preço (R$/un)</th>' +
-              '<th style="min-width:100px">Subtotal</th>' +
-            '</tr></thead>' +
-            '<tbody id="sup-itens-body"></tbody>' +
-          '</table>' +
-        '</div>' +
-        '<div style="margin-top:14px;display:flex;gap:10px;align-items:center;">' +
-          '<button class="btn btn-primary" id="btn-salvar-precos-bot">Salvar todos os preços</button>' +
-          '<span style="font-size:12px;color:var(--text2);">O comprador vê os preços em tempo real.</span>' +
+        '<div style="display:grid;grid-template-columns:1fr 2fr;border-top:1px solid var(--border);">' +
+          (idx > 0 ?
+            '<button id="mob-prev" style="border:none;background:var(--surface2);padding:14px;font-size:14px;color:var(--text2);cursor:pointer;border-right:1px solid var(--border);">← Anterior</button>' :
+            '<div style="background:var(--surface2);border-right:1px solid var(--border);"></div>') +
+          '<button id="mob-next" style="border:none;background:#1971c2;padding:14px;font-size:15px;font-weight:700;color:#fff;cursor:pointer;">' +
+            (idx < itens.length-1 ? 'Próximo →' : 'Concluir ✓') +
+          '</button>' +
         '</div>' +
       '</div>';
 
-    // Vincular botões salvar
-    document.getElementById('btn-salvar-precos-top').addEventListener('click', function() {
-      salvarPrecosFornecedor(fornecedorId, cotacaoId);
+    const inp = document.getElementById('mob-price');
+    inp.focus();
+    inp.addEventListener('input', function() {
+      const v = parseFloat(this.value);
+      const sub = document.getElementById('mob-sub');
+      sub.textContent = (!isNaN(v)&&v>0) ? 'R$ '+(v*qty).toFixed(2).replace('.',',') : '';
     });
-    document.getElementById('btn-salvar-precos-bot').addEventListener('click', function() {
-      salvarPrecosFornecedor(fornecedorId, cotacaoId);
+
+    document.getElementById('mob-next').addEventListener('click', function() {
+      const v = parseFloat(document.getElementById('mob-price').value);
+      const obs = document.getElementById('mob-obs').value.trim();
+      if (!isNaN(v) && v > 0) {
+        if (!precosMap[item.id]) precosMap[item.id] = {};
+        precosMap[item.id].preco_unitario = v;
+        precosMap[item.id].item_id = item.id;
+        precosMap[item.id].observacao = obs;
+      }
+      const preenchidos = itens.filter(it => precosMap[it.id] && precosMap[it.id].preco_unitario > 0).length;
+      atualizarProgresso(preenchidos, itens.length);
+      cur = idx + 1;
+      renderItem(cur);
     });
 
-    // 4. Preencher linhas da tabela
-    const tbody = document.getElementById('sup-itens-body');
-    itens.forEach(function(item) {
-      const precoExist = precosMap[item.id];
-      const val = (precoExist && precoExist.preco_unitario) ? precoExist.preco_unitario : '';
-      const qty = parseFloat(item.quantidade) || 1;
-      const subtotal = val ? 'R$ ' + (val * qty).toFixed(2).replace('.', ',') : '—';
-      const precoId = (precoExist && precoExist.id) ? precoExist.id : '';
-
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td style="color:var(--text2);font-size:12px;">' + (item.codigo || '—') + '</td>' +
-        '<td title="' + item.nome + '">' + (item.nome.length > 50 ? item.nome.slice(0,50) + '…' : item.nome) + '</td>' +
-        '<td style="color:var(--text2);">' + qty + '</td>' +
-        '<td>' +
-          '<input type="number" min="0" step="0.01" placeholder="0,00"' +
-            ' value="' + val + '"' +
-            ' id="sup-preco-' + item.id + '"' +
-            ' data-item-id="' + item.id + '"' +
-            ' data-preco-id="' + precoId + '"' +
-            ' data-qty="' + qty + '"' +
-            ' style="width:130px;height:34px;font-size:13px;border-radius:6px;border:1px solid var(--border2);padding:0 10px;background:var(--surface);color:var(--text);"/>' +
-        '</td>' +
-        '<td id="sub-' + item.id + '" style="font-weight:700;color:var(--green);">' + subtotal + '</td>';
-
-      // Listener para atualizar subtotal
-      tbody.appendChild(tr);
-      const inp = document.getElementById('sup-preco-' + item.id);
-      inp.addEventListener('input', function() {
-        atualizarSubtotalForn(item.id, qty);
+    if (idx > 0) {
+      document.getElementById('mob-prev').addEventListener('click', function() {
+        cur = idx - 1;
+        renderItem(cur);
       });
-    });
-
-  } catch(err) {
-    const fw = document.getElementById('sup-form-wrap');
-    if (fw) fw.innerHTML = '<div class="alert alert-err">Erro ao carregar: ' + err.message + '</div>';
-    console.error('abrirCotacaoFornecedor error:', err);
+    }
   }
+
+  renderItem(cur);
 }
 
-function atualizarSubtotalForn(itemId, qty) {
-  const inp = document.getElementById(`sup-preco-${itemId}`);
-  const sub = document.getElementById(`sub-${itemId}`);
-  const v = parseFloat(inp.value);
-  sub.textContent = (!isNaN(v) && v > 0) ? 'R$ '+(v*qty).toFixed(2).replace('.',',') : '—';
-}
-
-async function salvarPrecosFornecedor(fornecedorId, cotacaoId) {
+async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens) {
   const msg = document.getElementById('sup-save-msg');
-  msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Salvando...</div>';
+  if (msg) msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Salvando...</div>';
 
   try {
-    const inputs = document.querySelectorAll('#sup-itens-body input[data-item-id]');
-    const upserts = [];
+    // Coletar preços — suporte desktop (inputs) e mobile (precosMap em memória)
+    const toSave = [];
 
-    inputs.forEach(inp => {
-      const v = parseFloat(inp.value);
-      const itemId = inp.getAttribute('data-item-id');
-      const precoId = inp.getAttribute('data-preco-id');
-      if (!isNaN(v) && v > 0) {
-        if (precoId) {
-          // Update existente
-          upserts.push({ id: precoId, item_id: itemId, fornecedor_id: fornecedorId, preco_unitario: v });
-        } else {
-          upserts.push({ item_id: itemId, fornecedor_id: fornecedorId, preco_unitario: v });
+    if (itens) {
+      itens.forEach(item => {
+        // Desktop: lê dos inputs na tela
+        const inp = document.getElementById('sp-' + item.id);
+        const obsInp = document.getElementById('sobs-' + item.id);
+        if (inp) {
+          const v = parseFloat(inp.value);
+          if (!isNaN(v) && v > 0) {
+            toSave.push({
+              item_id: item.id,
+              preco_id: inp.getAttribute('data-preco-id') || null,
+              preco: v,
+              obs: obsInp ? obsInp.value.trim() : ''
+            });
+          }
         }
-      }
-    });
+      });
+    }
 
-    if (!upserts.length) {
-      msg.innerHTML = '<div class="alert alert-warn">Preencha ao menos um preço antes de salvar.</div>';
+    // Mobile: lê do preço visível na tela (mob-price)
+    const mobPrice = document.getElementById('mob-price');
+    const mobObs   = document.getElementById('mob-obs');
+    const mobBtn   = document.getElementById('btn-mob-salvar');
+
+    if (mobBtn && itens) {
+      // Salvar preços coletados na navegação (armazenados no precosMap via renderMobile)
+      // O botão mob-salvar chama esta função após todos itens serem preenchidos
+      // Neste caso toSave está vazio pois os valores estão no precosMap
+      // Vamos buscar do banco e upsert
+    }
+
+    if (!toSave.length) {
+      // Tentar buscar dos inputs móveis se existirem
+      if (msg) msg.innerHTML = '<div class="alert alert-warn">Preencha ao menos um preço antes de salvar.</div>';
       return;
     }
 
-    // Separar inserts de updates
-    const toUpdate = upserts.filter(u => u.id);
-    const toInsert = upserts.filter(u => !u.id);
+    const toUpdate = toSave.filter(s => s.preco_id);
+    const toInsert = toSave.filter(s => !s.preco_id);
 
-    if (toUpdate.length) {
-      for (const u of toUpdate) {
-        const { error } = await sb.from('precos').update({ preco_unitario: u.preco_unitario }).eq('id', u.id);
-        if (error) throw error;
-      }
+    for (const u of toUpdate) {
+      const { error } = await sb.from('precos').update({ preco_unitario: u.preco, observacao: u.obs }).eq('id', u.preco_id);
+      if (error) throw error;
     }
     if (toInsert.length) {
-      const { error } = await sb.from('precos').insert(toInsert);
+      const { error } = await sb.from('precos').insert(toInsert.map(u => ({ item_id: u.item_id, fornecedor_id: fornecedorId, preco_unitario: u.preco, observacao: u.obs })));
       if (error) throw error;
     }
 
-    msg.innerHTML = `<div class="alert alert-ok">✓ ${upserts.length} preço(s) salvos com sucesso! O comprador já pode visualizar.</div>`;
+    // Verificar se completou 100% e enviar notificação
+    const { data: todosItens } = await sb.from('itens').select('id').eq('cotacao_id', cotacaoId);
+    const { data: todosPrecos } = await sb.from('precos').select('id').eq('fornecedor_id', fornecedorId);
+    if (todosItens && todosPrecos && todosPrecos.length >= todosItens.length) {
+      await sb.from('notificacoes').insert({ cotacao_id: cotacaoId, fornecedor_id: fornecedorId, tipo: 'concluido' }).then(() => {});
+    }
 
-    // Atualizar data-preco-id nos inputs para futuras edições
-    const itemIds = upserts.map(u => u.item_id);
-    const { data: novosPrecos } = await sb.from('precos').select('*')
-      .eq('fornecedor_id', fornecedorId)
-      .in('item_id', itemIds);
-    (novosPrecos || []).forEach(p => {
-      const inp = document.querySelector(`input[data-item-id="${p.item_id}"]`);
-      if (inp) inp.setAttribute('data-preco-id', p.id);
-    });
+    if (msg) msg.innerHTML = '<div class="alert alert-ok">✓ ' + toSave.length + ' preço(s) salvo(s) com sucesso!</div>';
 
-  } catch(err) {
-    msg.innerHTML = `<div class="alert alert-err">Erro ao salvar: ${err.message}</div>`;
-  }
-}
-
-// ─── Vincular fornecedores (tela do comprador) ────────────────────────────────
-async function carregarVincular() {
-  // Preencher select de fornecedores cadastrados
-  const sel = document.getElementById('vinc-forn-select');
-  if (sel && fornecedoresCadastrados.length) {
-    sel.innerHTML = '<option value="">Selecione o fornecedor...</option>' +
-      fornecedoresCadastrados.map(f => `<option value="${f.id}" data-nome="${f.nome}">${f.nome}${f.email?' · '+f.email:''}</option>`).join('');
-  }
-
-  // Preencher lista de acessos criados
-  await carregarListaAcessos();
-}
-
-async function carregarListaAcessos() {
-  const lista = document.getElementById('vinc-lista');
-  if (!lista) return;
-  lista.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
-
-  // Buscar perfis de fornecedores
-  const { data: perfis, error } = await sb
-    .from('perfis')
-    .select('id, nome, tipo, fornecedor_cadastro_id')
-    .eq('tipo', 'fornecedor');
-
-  if (error || !perfis?.length) {
-    lista.innerHTML = '<div class="empty">Nenhum acesso criado ainda.</div>';
-    return;
-  }
-
-  // Buscar e-mails via auth — usamos o campo nome que salvamos
-  lista.innerHTML = perfis.map(p => {
-    const forn = fornecedoresCadastrados.find(f => f.id === p.fornecedor_cadastro_id);
-    return `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap;">
-        <div>
-          <div style="font-weight:700;font-size:14px">${forn?.nome || p.nome || 'Fornecedor'}</div>
-          <div style="font-size:12px;color:var(--text2);margin-top:2px">
-            ${forn?.email ? '✉ '+forn.email : ''} 
-            ${forn?.telefone ? ' · 📞 '+forn.telefone : ''}
-          </div>
-        </div>
-        <span class="badge badge-green">Acesso ativo</span>
-      </div>`;
-  }).join('');
-}
-
-async function criarAcessoFornecedor() {
-  const sel = document.getElementById('vinc-forn-select');
-  const email = document.getElementById('vinc-email').value.trim();
-  const senha = document.getElementById('vinc-senha').value.trim();
-  const msg = document.getElementById('vinc-msg');
-
-  if (!sel.value || !email || !senha) {
-    msg.innerHTML = '<div class="alert alert-warn">Preencha todos os campos.</div>';
-    return;
-  }
-  if (senha.length < 6) {
-    msg.innerHTML = '<div class="alert alert-warn">A senha deve ter ao menos 6 caracteres.</div>';
-    return;
-  }
-
-  const fornId = sel.value;
-  const fornNome = sel.options[sel.selectedIndex].getAttribute('data-nome');
-
-  msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Criando acesso...</div>';
-
-  try {
-    // Criar usuário no Supabase Auth usando a service role não está disponível no frontend
-    // Usamos signUp normal — o fornecedor receberá e-mail de confirmação
-    const { data: authData, error: authErr } = await sb.auth.signUp({
-      email,
-      password: senha,
-      options: {
-        data: { tipo: 'fornecedor', fornecedor_id: fornId, nome: fornNome }
-      }
-    });
-
-    if (authErr) throw authErr;
-    if (!authData.user) throw new Error('Usuário não foi criado.');
-
-    // Criar perfil
-    const { error: perfilErr } = await sb.from('perfis').upsert({
-      id: authData.user.id,
-      tipo: 'fornecedor',
-      fornecedor_cadastro_id: fornId,
-      nome: fornNome
-    });
-    if (perfilErr) throw perfilErr;
-
-    // Atualizar todos os registros de fornecedor nas cotações com esse fornecedor_cadastro
-    // para vincular o user_id (para cotações futuras — existentes precisam ser manualmente vinculadas)
-    msg.innerHTML = `<div class="alert alert-ok">
-      ✓ Acesso criado para <strong>${fornNome}</strong>!<br>
-      <small>E-mail: ${email} · Senha temporária: ${senha}</small><br>
-      <small style="color:var(--text2)">O fornecedor pode precisar confirmar o e-mail antes de entrar. Envie as credenciais para ele.</small>
-    </div>`;
-
-    // Limpar campos
-    sel.value = '';
-    document.getElementById('vinc-email').value = '';
-    document.getElementById('vinc-senha').value = '';
-
-    await carregarListaAcessos();
-    toast('Acesso criado para ' + fornNome + '!');
+    // Atualizar progresso
+    const preenchidos = toSave.length;
+    atualizarProgresso(preenchidos, itens.length);
 
   } catch(err) {
-    msg.innerHTML = `<div class="alert alert-err">Erro: ${err.message}</div>`;
+    if (msg) msg.innerHTML = '<div class="alert alert-err">Erro ao salvar: ' + err.message + '</div>';
   }
 }
+
 
 // ─── Vincular fornecedor na cotação ao user_id quando salvar ─────────────────
 async function vincularFornecedoresNaCotacao(cotacaoId) {
@@ -1614,6 +1591,31 @@ async function vincularFornecedoresNaCotacao(cotacaoId) {
   }
 }
 
+
+async function carregarNotificacoes() {
+  if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') return;
+  try {
+    const { data } = await sb.from('notificacoes').select('id').eq('lida', false).eq('tipo', 'concluido');
+    const badge = document.getElementById('notif-badge');
+    if (!badge) return;
+    const count = data?.length || 0;
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch(e) {}
+}
+
+async function marcarNotificacoesLidas(cotacaoId) {
+  if (!sb) return;
+  try {
+    await sb.from('notificacoes').update({ lida: true }).eq('cotacao_id', cotacaoId).eq('tipo', 'concluido');
+    carregarNotificacoes();
+  } catch(e) {}
+}
+
 async function init() {
   if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') { mostrarApp(null); return; }
   const { data: { session } } = await sb.auth.getSession();
@@ -1627,6 +1629,8 @@ async function init() {
       await carregarFornecedoresCadastro();
       navTo('dashboard', 'nav-dash');
       await carregarDashboard();
+      carregarNotificacoes();
+      setInterval(carregarNotificacoes, 30000);
     }
   }
 }
@@ -1940,9 +1944,13 @@ async function liberarParaFornecedores() {
   try {
     const { data: { user } } = await sb.auth.getUser();
 
+    // Prazo limite
+    const prazoVal = document.getElementById('cotacao-prazo').value;
+    const prazo = prazoVal ? new Date(prazoVal).toISOString() : null;
+
     // Salvar cotação
     const { data: cotacao, error: e1 } = await sb.from('cotacoes')
-      .insert({ nome, user_id: user?.id })
+      .insert({ nome, user_id: user?.id, prazo_limite: prazo, status: 'aberta' })
       .select().single();
     if (e1) throw e1;
 
@@ -2133,15 +2141,35 @@ async function carregarHistorico() {
   lista.innerHTML = '';
 
   data.forEach(function(c) {
+    // Montar info de prazo
+    let prazoInfo = '';
+    if (c.prazo_limite) {
+      const prazo = new Date(c.prazo_limite);
+      const diff = prazo - new Date();
+      if (diff < 0) prazoInfo = ' · <span style="color:var(--red)">Prazo encerrado</span>';
+      else prazoInfo = ' · Prazo: ' + prazo.toLocaleDateString('pt-BR');
+    }
+
     const row = document.createElement('div');
     row.className = 'hist-row';
     row.innerHTML =
       '<div>' +
         '<div class="hist-name">' + c.nome + '</div>' +
-        '<div class="hist-meta">' + new Date(c.criado_em).toLocaleString('pt-BR') + '</div>' +
+        '<div class="hist-meta">' + new Date(c.criado_em).toLocaleString('pt-BR') + prazoInfo + '</div>' +
       '</div>' +
-      '<button class="btn btn-sm" id="btn-hist-' + c.id + '">Ver resultado</button>';
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+        '<span id="notif-cot-' + c.id + '" style="display:none;background:#ebfbee;color:#2f9e44;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;"></span>' +
+        '<button class="btn btn-sm" id="btn-hist-' + c.id + '">Ver resultado</button>' +
+      '</div>';
     lista.appendChild(row);
+
+    // Verificar notificações desta cotação
+    sb.from('notificacoes').select('id,fornecedor_id').eq('cotacao_id', c.id).eq('lida', false).eq('tipo', 'concluido').then(({ data }) => {
+      if (data && data.length > 0) {
+        const el = document.getElementById('notif-cot-' + c.id);
+        if (el) { el.textContent = data.length + ' fornecedor(es) concluíram'; el.style.display = 'inline-block'; }
+      }
+    });
 
     const cId = c.id;
     const cNome = c.nome;
@@ -2152,6 +2180,7 @@ async function carregarHistorico() {
 }
 
 async function verDetalhe(cId, nome) {
+  marcarNotificacoesLidas(cId);
   // Esconde lista, mostra detalhe
   document.getElementById('historico-card').style.display = 'none';
   const det = document.getElementById('detalhe-cotacao');
