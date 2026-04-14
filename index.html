@@ -2110,17 +2110,45 @@ async function salvarCotacao() {
 }
 
 async function carregarHistorico() {
-  if(!sb||SUPABASE_URL==='COLE_SUA_URL_AQUI'){document.getElementById('historico-lista').innerHTML='<div class="alert alert-warn">Configure as credenciais do Supabase no arquivo index.html para usar o histórico.</div>';return;}
+  if(!sb||SUPABASE_URL==='COLE_SUA_URL_AQUI'){
+    document.getElementById('historico-lista').innerHTML='<div class="alert alert-warn">Configure o Supabase para ver o histórico.</div>';
+    return;
+  }
   document.getElementById('historico-lista').innerHTML='<div class="empty"><span class="spinner"></span> Carregando...</div>';
   document.getElementById('detalhe-cotacao').style.display='none';
   document.getElementById('historico-card').style.display='block';
-  const {data,error}=await sb.from('cotacoes').select('*').order('criado_em',{ascending:false});
-  if(error||!data?.length){document.getElementById('historico-lista').innerHTML='<div class="empty">Nenhuma cotação salva ainda.</div>';return;}
-  document.getElementById('historico-lista').innerHTML=data.map(c=>`
-    <div class="hist-row">
-      <div><div class="hist-name">${c.nome}</div><div class="hist-meta">${new Date(c.criado_em).toLocaleString('pt-BR')}</div></div>
-      <button class="btn btn-sm" onclick="verDetalhe('${c.id}',${JSON.stringify(c.nome)})">Ver resultado</button>
-    </div>`).join('');
+
+  const { data, error } = await sb.from('cotacoes').select('*').order('criado_em', { ascending: false });
+
+  if (error) {
+    document.getElementById('historico-lista').innerHTML = '<div class="alert alert-err">Erro ao carregar: ' + error.message + '</div>';
+    return;
+  }
+  if (!data || !data.length) {
+    document.getElementById('historico-lista').innerHTML = '<div class="empty">Nenhuma cotação salva ainda.</div>';
+    return;
+  }
+
+  const lista = document.getElementById('historico-lista');
+  lista.innerHTML = '';
+
+  data.forEach(function(c) {
+    const row = document.createElement('div');
+    row.className = 'hist-row';
+    row.innerHTML =
+      '<div>' +
+        '<div class="hist-name">' + c.nome + '</div>' +
+        '<div class="hist-meta">' + new Date(c.criado_em).toLocaleString('pt-BR') + '</div>' +
+      '</div>' +
+      '<button class="btn btn-sm" id="btn-hist-' + c.id + '">Ver resultado</button>';
+    lista.appendChild(row);
+
+    const cId = c.id;
+    const cNome = c.nome;
+    document.getElementById('btn-hist-' + cId).addEventListener('click', function() {
+      verDetalhe(cId, cNome);
+    });
+  });
 }
 
 async function verDetalhe(cId, nome) {
