@@ -2405,6 +2405,42 @@ async function calcular() {
   [...suppliers].sort((a,b)=>res[b].total-res[a].total).forEach(s=>{
     if(!res[s].items.length)cards+=`<div class="sup-card" style="opacity:.45"><div class="sup-hdr"><div class="sup-name">${s}</div><span class="badge badge-gray">Nenhum item mais barato</span></div></div>`;
   });
+  // ── Seção de itens SEM cotação ───────────────────────────────────────────
+  const itensSemCotacao = products.filter(p => !winners[p.nome].supplier);
+
+  if (itensSemCotacao.length > 0) {
+    cards += `<div style="margin-top:1.25rem;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c92a2a" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span style="font-size:15px;font-weight:700;color:#c92a2a;">${itensSemCotacao.length} item(s) sem cotação</span>
+        <span style="font-size:12px;color:var(--text2);">Nenhum fornecedor informou preço para estes produtos</span>
+      </div>
+      <div style="background:#fff5f5;border:1px solid #ffa8a8;border-radius:var(--radius-lg);overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr style="background:#ffe3e3;">
+              <th style="padding:8px 14px;text-align:left;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Código</th>
+              <th style="padding:8px 14px;text-align:left;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Produto</th>
+              <th style="padding:8px 14px;text-align:center;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Qtd</th>
+              <th style="padding:8px 14px;text-align:left;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itensSemCotacao.map((p, i) => `
+              <tr style="${i < itensSemCotacao.length-1 ? 'border-bottom:1px solid #ffd3d3;' : ''}">
+                <td style="padding:9px 14px;color:#c92a2a;font-size:12px;">${p.cod||'—'}</td>
+                <td style="padding:9px 14px;color:#212529;font-weight:500;">${p.nome.length>55?p.nome.slice(0,55)+'…':p.nome}</td>
+                <td style="padding:9px 14px;text-align:center;color:#6c757d;">${p.qty} ${p.unit}</td>
+                <td style="padding:9px 14px;">
+                  <span style="background:#ffe3e3;color:#c92a2a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">Sem cotação</span>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+
   document.getElementById('sup-cards').innerHTML=cards;
   document.getElementById('resultado').style.display='block';
   document.getElementById('btn-pdf').style.display='inline-flex';
@@ -2691,6 +2727,44 @@ async function verDetalhe(cId, nome) {
 
     if (!cards) {
       cards = '<div class="empty">Nenhum preço foi registrado nesta cotação.</div>';
+    }
+
+    // Itens sem cotação
+    const itensSemPreco = itensArr.filter(item =>
+      !forsArr.some(f => res[f.nome]?.items.some(it => it.nome === item.nome))
+    );
+
+    if (itensSemPreco.length > 0) {
+      cards += `<div style="margin-top:1.25rem;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c92a2a" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span style="font-size:15px;font-weight:700;color:#c92a2a;">${itensSemPreco.length} item(s) sem cotação</span>
+          <span style="font-size:12px;color:var(--text2);">Nenhum fornecedor informou preço</span>
+        </div>
+        <div style="background:#fff5f5;border:1px solid #ffa8a8;border-radius:var(--radius-lg);overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="background:#ffe3e3;">
+                <th style="padding:8px 14px;text-align:left;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Código</th>
+                <th style="padding:8px 14px;text-align:left;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Produto</th>
+                <th style="padding:8px 14px;text-align:center;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Qtd</th>
+                <th style="padding:8px 14px;text-align:left;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itensSemPreco.map((item, i) => `
+                <tr style="${i < itensSemPreco.length-1 ? 'border-bottom:1px solid #ffd3d3;' : ''}">
+                  <td style="padding:9px 14px;color:#c92a2a;font-size:12px;">${item.codigo||'—'}</td>
+                  <td style="padding:9px 14px;color:#212529;font-weight:500;">${item.nome.length>55?item.nome.slice(0,55)+'…':item.nome}</td>
+                  <td style="padding:9px 14px;text-align:center;color:#6c757d;">${item.quantidade||1} ${item.unidade||'un'}</td>
+                  <td style="padding:9px 14px;">
+                    <span style="background:#ffe3e3;color:#c92a2a;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">Sem cotação</span>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
     }
 
     document.getElementById('detalhe-cards').innerHTML = cards;
