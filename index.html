@@ -1292,95 +1292,118 @@ async function verificarStatusPrecos(cotacaoId, fornecedorId) {
 
 async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao) {
   const wrap = document.getElementById('sup-content');
-  wrap.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;">
-      <button class="btn btn-sm" onclick="carregarCotacoesFornecedor({id:'${(await sb.auth.getUser()).data.user.id}',email:''});carregarCotacoesFornecedor((await sb.auth.getUser()).data.user)" style="display:none"></button>
-      <button class="btn btn-sm" id="btn-voltar-sup">← Voltar</button>
-      <div style="font-size:18px;font-weight:700;">${nomeCotacao}</div>
-    </div>
-    <div id="sup-form-wrap"><div class="empty"><span class="spinner"></span> Carregando itens...</div></div>`;
 
-  document.getElementById('btn-voltar-sup').onclick = async () => {
+  // Monta o HTML da tela SEM await no template string
+  wrap.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;">' +
+      '<button class="btn btn-sm" id="btn-voltar-sup">&#8592; Voltar</button>' +
+      '<div style="font-size:18px;font-weight:700;">' + nomeCotacao + '</div>' +
+    '</div>' +
+    '<div id="sup-form-wrap">' +
+      '<div class="empty"><span class="spinner"></span> Carregando itens...</div>' +
+    '</div>';
+
+  // Vincular botão voltar depois de renderizar
+  document.getElementById('btn-voltar-sup').addEventListener('click', async function() {
     const { data: { user } } = await sb.auth.getUser();
-    carregarCotacoesFornecedor(user);
-  };
+    await carregarCotacoesFornecedor(user);
+  });
 
   try {
-    // Buscar itens
+    // 1. Buscar itens da cotação
     const { data: itens, error: e1 } = await sb.from('itens').select('*').eq('cotacao_id', cotacaoId);
     if (e1) throw e1;
+    if (!itens || !itens.length) {
+      document.getElementById('sup-form-wrap').innerHTML =
+        '<div class="alert alert-warn">Nenhum item encontrado nesta cotação.</div>';
+      return;
+    }
 
-    // Buscar preços já preenchidos
+    // 2. Buscar preços já preenchidos por este fornecedor
     const itemIds = itens.map(i => i.id);
-    const { data: precosExist } = await sb.from('precos').select('*')
+    const { data: precosExist, error: e2 } = await sb.from('precos').select('*')
       .eq('fornecedor_id', fornecedorId)
       .in('item_id', itemIds);
+    if (e2) throw e2;
 
     const precosMap = {};
     (precosExist || []).forEach(p => { precosMap[p.item_id] = p; });
 
+    // 3. Montar tabela de preços
     const formWrap = document.getElementById('sup-form-wrap');
-    formWrap.innerHTML = `
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">
-          <div>
-            <div style="font-size:14px;font-weight:600">${itens.length} itens para cotar</div>
-            <div style="font-size:12px;color:var(--text2);margin-top:2px">Preencha o preço unitário de cada produto. Deixe em branco se não tiver o item.</div>
-          </div>
-          <button class="btn btn-primary" onclick="salvarPrecosFornecedor('${fornecedorId}','${cotacaoId}')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
-            Salvar todos os preços
-          </button>
-        </div>
-        <div id="sup-save-msg"></div>
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr>
-              <th style="min-width:60px">Código</th>
-              <th style="min-width:200px">Produto</th>
-              <th style="min-width:60px">Qtd</th>
-              <th style="min-width:140px">Seu preço (R$/un)</th>
-              <th style="min-width:100px">Subtotal</th>
-            </tr></thead>
-            <tbody id="sup-itens-body"></tbody>
-          </table>
-        </div>
-        <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
-          <button class="btn btn-primary" onclick="salvarPrecosFornecedor('${fornecedorId}','${cotacaoId}')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
-            Salvar todos os preços
-          </button>
-          <span style="font-size:12px;color:var(--text2)">Os preços são visíveis ao comprador em tempo real após salvar.</span>
-        </div>
-      </div>`;
+    formWrap.innerHTML =
+      '<div class="card">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:8px;">' +
+          '<div>' +
+            '<div style="font-size:15px;font-weight:700;">' + itens.length + ' itens para cotar</div>' +
+            '<div style="font-size:12px;color:var(--text2);margin-top:4px;">Preencha o preço unitário. Deixe em branco se não tiver o item.</div>' +
+          '</div>' +
+          '<button class="btn btn-primary" id="btn-salvar-precos-top">Salvar todos os preços</button>' +
+        '</div>' +
+        '<div id="sup-save-msg" style="margin-bottom:8px;"></div>' +
+        '<div class="tbl-wrap">' +
+          '<table>' +
+            '<thead><tr>' +
+              '<th style="min-width:60px">Código</th>' +
+              '<th style="min-width:200px">Produto</th>' +
+              '<th style="min-width:50px">Qtd</th>' +
+              '<th style="min-width:150px">Seu preço (R$/un)</th>' +
+              '<th style="min-width:100px">Subtotal</th>' +
+            '</tr></thead>' +
+            '<tbody id="sup-itens-body"></tbody>' +
+          '</table>' +
+        '</div>' +
+        '<div style="margin-top:14px;display:flex;gap:10px;align-items:center;">' +
+          '<button class="btn btn-primary" id="btn-salvar-precos-bot">Salvar todos os preços</button>' +
+          '<span style="font-size:12px;color:var(--text2);">O comprador vê os preços em tempo real.</span>' +
+        '</div>' +
+      '</div>';
 
-    const tbody = document.getElementById('sup-itens-body');
-    itens.forEach(item => {
-      const precoExist = precosMap[item.id];
-      const val = precoExist ? precoExist.preco_unitario : '';
-      const qty = parseFloat(item.quantidade) || 1;
-      tbody.innerHTML += `
-        <tr>
-          <td style="color:var(--text2);font-size:12px">${item.codigo || '—'}</td>
-          <td title="${item.nome}">${item.nome.length>50?item.nome.slice(0,50)+'…':item.nome}</td>
-          <td style="color:var(--text2)">${qty}</td>
-          <td>
-            <input type="number" min="0" step="0.01" placeholder="0,00"
-              value="${val}"
-              id="sup-preco-${item.id}"
-              data-item-id="${item.id}"
-              data-preco-id="${precoExist?.id || ''}"
-              data-qty="${qty}"
-              oninput="atualizarSubtotalForn('${item.id}',${qty})"
-              style="width:130px;height:32px;font-size:13px;border-radius:6px;border:1px solid var(--border2);padding:0 8px;background:var(--surface);color:var(--text)"/>
-          </td>
-          <td id="sub-${item.id}" style="font-weight:600;color:var(--green)">
-            ${val ? 'R$ '+(val*qty).toFixed(2).replace('.',',') : '—'}
-          </td>
-        </tr>`;
+    // Vincular botões salvar
+    document.getElementById('btn-salvar-precos-top').addEventListener('click', function() {
+      salvarPrecosFornecedor(fornecedorId, cotacaoId);
     });
+    document.getElementById('btn-salvar-precos-bot').addEventListener('click', function() {
+      salvarPrecosFornecedor(fornecedorId, cotacaoId);
+    });
+
+    // 4. Preencher linhas da tabela
+    const tbody = document.getElementById('sup-itens-body');
+    itens.forEach(function(item) {
+      const precoExist = precosMap[item.id];
+      const val = (precoExist && precoExist.preco_unitario) ? precoExist.preco_unitario : '';
+      const qty = parseFloat(item.quantidade) || 1;
+      const subtotal = val ? 'R$ ' + (val * qty).toFixed(2).replace('.', ',') : '—';
+      const precoId = (precoExist && precoExist.id) ? precoExist.id : '';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="color:var(--text2);font-size:12px;">' + (item.codigo || '—') + '</td>' +
+        '<td title="' + item.nome + '">' + (item.nome.length > 50 ? item.nome.slice(0,50) + '…' : item.nome) + '</td>' +
+        '<td style="color:var(--text2);">' + qty + '</td>' +
+        '<td>' +
+          '<input type="number" min="0" step="0.01" placeholder="0,00"' +
+            ' value="' + val + '"' +
+            ' id="sup-preco-' + item.id + '"' +
+            ' data-item-id="' + item.id + '"' +
+            ' data-preco-id="' + precoId + '"' +
+            ' data-qty="' + qty + '"' +
+            ' style="width:130px;height:34px;font-size:13px;border-radius:6px;border:1px solid var(--border2);padding:0 10px;background:var(--surface);color:var(--text);"/>' +
+        '</td>' +
+        '<td id="sub-' + item.id + '" style="font-weight:700;color:var(--green);">' + subtotal + '</td>';
+
+      // Listener para atualizar subtotal
+      tbody.appendChild(tr);
+      const inp = document.getElementById('sup-preco-' + item.id);
+      inp.addEventListener('input', function() {
+        atualizarSubtotalForn(item.id, qty);
+      });
+    });
+
   } catch(err) {
-    document.getElementById('sup-form-wrap').innerHTML = `<div class="alert alert-err">Erro: ${err.message}</div>`;
+    const fw = document.getElementById('sup-form-wrap');
+    if (fw) fw.innerHTML = '<div class="alert alert-err">Erro ao carregar: ' + err.message + '</div>';
+    console.error('abrirCotacaoFornecedor error:', err);
   }
 }
 
