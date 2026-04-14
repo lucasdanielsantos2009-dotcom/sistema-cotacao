@@ -19,6 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -123,6 +124,11 @@
     .sidebar { display: none; }
     .main { padding: 1rem; }
   }
+  @media (max-width: 900px) {
+    #dash-content > div[style*="grid-template-columns:1fr 1fr"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -164,7 +170,11 @@
       Cotação
     </div>
     <div class="nav-section">Menu</div>
-    <button class="nav-item active" id="nav-nova" onclick="navTo('nova-cotacao','nav-nova');carregarFornecedoresCadastro()">
+    <button class="nav-item active" id="nav-dash" onclick="navTo('dashboard','nav-dash');carregarDashboard()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-item" id="nav-nova" onclick="navTo('nova-cotacao','nav-nova');carregarFornecedoresCadastro()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
       Nova cotação
     </button>
@@ -188,7 +198,7 @@
   <main class="main">
 
     <!-- NOVA COTAÇÃO -->
-    <div id="page-nova-cotacao" class="page active">
+    <div id="page-nova-cotacao" class="page">
       <div class="page-title">Nova cotação</div>
       <div class="page-sub">Importe os itens, adicione os fornecedores e preencha os preços.</div>
 
@@ -278,6 +288,15 @@
         <div style="font-size:18px;font-weight:700;margin-bottom:1rem;">Resultado da cotação</div>
         <div class="metrics" id="metrics"></div>
         <div id="sup-cards"></div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-title">Dashboard</div>
+      <div class="page-sub">Visão geral de todas as cotações salvas.</div>
+      <div id="dash-content">
+        <div class="empty"><span class="spinner"></span> Carregando...</div>
       </div>
     </div>
 
@@ -638,6 +657,259 @@ function exportarPDF() {
 }
 
 
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+let dashCharts = {};
+
+async function carregarDashboard() {
+  const wrap = document.getElementById('dash-content');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="empty"><span class="spinner"></span> Carregando dados...</div>';
+
+  if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') {
+    wrap.innerHTML = '<div class="alert alert-warn">Configure o Supabase para ver o dashboard.</div>';
+    return;
+  }
+
+  // Destruir charts anteriores
+  Object.values(dashCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  dashCharts = {};
+
+  // Buscar dados
+  const { data: cotacoes } = await sb.from('cotacoes').select('*').order('criado_em', { ascending: true });
+  if (!cotacoes || !cotacoes.length) {
+    wrap.innerHTML = '<div class="empty" style="padding:3rem 0">Nenhuma cotação salva ainda.<br><small style="color:var(--text3)">Faça sua primeira cotação e salve para ver os gráficos aqui.</small></div>';
+    return;
+  }
+
+  const cotIds = cotacoes.map(c => c.id);
+  const { data: itens }       = await sb.from('itens').select('*').in('cotacao_id', cotIds);
+  const { data: fors }        = await sb.from('fornecedores').select('*').in('cotacao_id', cotIds);
+  const { data: precos }      = await sb.from('precos').select('*');
+
+  // ── Calcular métricas ─────────────────────────────────────────────────────
+  // Total geral por cotação + vencedor por cotação
+  const porCotacao = {};
+  cotacoes.forEach(c => { porCotacao[c.id] = { nome: c.nome, data: c.criado_em, total: 0, fornVenc: {}, economia: 0 }; });
+
+  // Para cada cotação, recalcular quem ganhou o quê
+  cotacoes.forEach(c => {
+    const itensCot   = (itens  || []).filter(i => i.cotacao_id === c.id);
+    const forsCot    = (fors   || []).filter(f => f.cotacao_id === c.id);
+    const itemIds    = itensCot.map(i => i.id);
+    const precosCot  = (precos || []).filter(p => itemIds.includes(p.item_id));
+
+    itensCot.forEach(item => {
+      let minP = Infinity, maxP = 0;
+      forsCot.forEach(f => {
+        const p = precosCot.find(pr => pr.item_id === item.id && pr.fornecedor_id === f.id);
+        if (p && p.preco_unitario > 0) {
+          if (p.preco_unitario < minP) minP = p.preco_unitario;
+          if (p.preco_unitario > maxP) maxP = p.preco_unitario;
+        }
+      });
+      let bestForn = null;
+      forsCot.forEach(f => {
+        const p = precosCot.find(pr => pr.item_id === item.id && pr.fornecedor_id === f.id);
+        if (p && p.preco_unitario === minP) bestForn = f.nome;
+      });
+      if (bestForn && minP !== Infinity) {
+        porCotacao[c.id].total += minP * (item.quantidade || 1);
+        porCotacao[c.id].fornVenc[bestForn] = (porCotacao[c.id].fornVenc[bestForn] || 0) + minP * (item.quantidade || 1);
+        if (maxP > minP) porCotacao[c.id].economia += (maxP - minP) * (item.quantidade || 1);
+      }
+    });
+  });
+
+  const totalGeral    = Object.values(porCotacao).reduce((a, c) => a + c.total, 0);
+  const totalEconomia = Object.values(porCotacao).reduce((a, c) => a + c.economia, 0);
+  const totalCotacoes = cotacoes.length;
+
+  // Ranking fornecedores (soma dos totais ganhos em todas cotações)
+  const rankForn = {};
+  Object.values(porCotacao).forEach(c => {
+    Object.entries(c.fornVenc).forEach(([f, v]) => {
+      rankForn[f] = (rankForn[f] || 0) + v;
+    });
+  });
+  const rankFornSorted = Object.entries(rankForn).sort((a,b) => b[1]-a[1]).slice(0, 8);
+
+  // Gasto por mês (últimos 12 meses)
+  const porMes = {};
+  Object.values(porCotacao).forEach(c => {
+    const d = new Date(c.data);
+    const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    porMes[key] = (porMes[key] || 0) + c.total;
+  });
+  const mesesKeys  = Object.keys(porMes).sort().slice(-12);
+  const mesesLabel = mesesKeys.map(k => {
+    const [y,m] = k.split('-');
+    return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][parseInt(m)-1] + '/' + y.slice(2);
+  });
+  const mesesVals = mesesKeys.map(k => parseFloat(porMes[k].toFixed(2)));
+
+  // Produtos mais cotados
+  const prodCount = {};
+  (itens || []).forEach(i => { prodCount[i.nome] = (prodCount[i.nome] || 0) + 1; });
+  const topProd = Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  // ── Render HTML ───────────────────────────────────────────────────────────
+  wrap.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1.5rem;">
+      <div class="metric"><div class="metric-label">Total em compras</div><div class="metric-value green">R$ ${totalGeral.toFixed(2).replace('.',',')}</div></div>
+      <div class="metric"><div class="metric-label">Economia gerada</div><div class="metric-value" style="color:#1971c2">R$ ${totalEconomia.toFixed(2).replace('.',',')}</div></div>
+      <div class="metric"><div class="metric-label">Cotações realizadas</div><div class="metric-value">${totalCotacoes}</div></div>
+      <div class="metric"><div class="metric-label">Fornecedores ativos</div><div class="metric-value">${rankFornSorted.length}</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Gasto por mês</div>
+        <div style="position:relative;height:220px"><canvas id="chart-mes"></canvas></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Ranking de fornecedores</div>
+        <div style="position:relative;height:220px"><canvas id="chart-forn"></canvas></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Produtos mais cotados</div>
+        <div style="position:relative;height:240px"><canvas id="chart-prod"></canvas></div>
+      </div>
+      <div class="card" style="margin-bottom:0">
+        <div class="card-title">Participação por fornecedor (R$)</div>
+        <div style="position:relative;height:240px;display:flex;align-items:center;justify-content:center"><canvas id="chart-pie"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Últimas cotações</div>
+      <div id="dash-ultimas"></div>
+    </div>
+  `;
+
+  // Cores
+  const palette = ['#1971c2','#2f9e44','#c92a2a','#795c00','#5f3dc4','#0ca678','#d6336c','#e8590c'];
+
+  // ── Gráfico 1: Gasto por mês (linha) ─────────────────────────────────────
+  const ctxMes = document.getElementById('chart-mes').getContext('2d');
+  dashCharts.mes = new Chart(ctxMes, {
+    type: 'line',
+    data: {
+      labels: mesesLabel,
+      datasets: [{
+        label: 'Gasto (R$)',
+        data: mesesVals,
+        borderColor: '#1971c2',
+        backgroundColor: 'rgba(25,113,194,0.08)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#1971c2',
+        pointRadius: 4,
+        tension: 0.4,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => 'R$'+v.toLocaleString('pt-BR',{maximumFractionDigits:0}), font:{size:11} }, grid:{color:'rgba(0,0,0,0.05)'} },
+        x: { ticks: { font:{size:11} }, grid:{display:false} }
+      }
+    }
+  });
+
+  // ── Gráfico 2: Ranking fornecedores (barra horizontal) ───────────────────
+  const ctxForn = document.getElementById('chart-forn').getContext('2d');
+  dashCharts.forn = new Chart(ctxForn, {
+    type: 'bar',
+    data: {
+      labels: rankFornSorted.map(([n]) => n.length>16?n.slice(0,16)+'…':n),
+      datasets: [{
+        label: 'Total ganho (R$)',
+        data: rankFornSorted.map(([,v]) => parseFloat(v.toFixed(2))),
+        backgroundColor: rankFornSorted.map((_,i) => palette[i % palette.length]),
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { callback: v => 'R$'+v.toLocaleString('pt-BR',{maximumFractionDigits:0}), font:{size:11} }, grid:{color:'rgba(0,0,0,0.05)'} },
+        y: { ticks: { font:{size:11} }, grid:{display:false} }
+      }
+    }
+  });
+
+  // ── Gráfico 3: Produtos mais cotados (barra) ─────────────────────────────
+  const ctxProd = document.getElementById('chart-prod').getContext('2d');
+  dashCharts.prod = new Chart(ctxProd, {
+    type: 'bar',
+    data: {
+      labels: topProd.map(([n]) => n.length>22?n.slice(0,22)+'…':n),
+      datasets: [{
+        label: 'Vezes cotado',
+        data: topProd.map(([,v]) => v),
+        backgroundColor: '#1971c2',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { stepSize:1, font:{size:11} }, grid:{color:'rgba(0,0,0,0.05)'} },
+        x: { ticks: { font:{size:10}, maxRotation:35 }, grid:{display:false} }
+      }
+    }
+  });
+
+  // ── Gráfico 4: Pizza participação fornecedores ────────────────────────────
+  const ctxPie = document.getElementById('chart-pie').getContext('2d');
+  dashCharts.pie = new Chart(ctxPie, {
+    type: 'doughnut',
+    data: {
+      labels: rankFornSorted.map(([n]) => n),
+      datasets: [{
+        data: rankFornSorted.map(([,v]) => parseFloat(v.toFixed(2))),
+        backgroundColor: palette.slice(0, rankFornSorted.length),
+        borderWidth: 2,
+        borderColor: '#ffffff',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '60%',
+      plugins: {
+        legend: { position: 'right', labels: { font:{size:11}, boxWidth:12, padding:10 } },
+        tooltip: { callbacks: { label: ctx => ' R$ ' + ctx.parsed.toFixed(2).replace('.',',') } }
+      }
+    }
+  });
+
+  // ── Tabela últimas cotações ───────────────────────────────────────────────
+  const ultimas = cotacoes.slice(-8).reverse();
+  document.getElementById('dash-ultimas').innerHTML = ultimas.map(c => {
+    const t = porCotacao[c.id]?.total || 0;
+    const eco = porCotacao[c.id]?.economia || 0;
+    const venc = Object.entries(porCotacao[c.id]?.fornVenc || {}).sort((a,b)=>b[1]-a[1])[0];
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap;">
+      <div>
+        <div style="font-weight:600;font-size:14px">${c.nome}</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${new Date(c.criado_em).toLocaleDateString('pt-BR')} ${venc ? '· Principal fornecedor: <strong>'+venc[0]+'</strong>' : ''}</div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;flex-shrink:0">
+        ${eco>0?`<span style="font-size:12px;color:#1971c2">Economia: R$ ${eco.toFixed(2).replace('.',',')}</span>`:''}
+        <span style="font-size:16px;font-weight:700;color:var(--green)">R$ ${t.toFixed(2).replace('.',',')}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ─── Fornecedores cadastrados ─────────────────────────────────────────────────
 let fornecedoresCadastrados = [];
 
@@ -828,6 +1100,9 @@ async function init() {
   if (session) {
     mostrarApp(session.user);
     await carregarFornecedoresCadastro();
+    // Auto-redirect to dashboard
+    navTo('dashboard', 'nav-dash');
+    await carregarDashboard();
   }
 }
 
