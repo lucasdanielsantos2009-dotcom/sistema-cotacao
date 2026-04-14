@@ -2330,6 +2330,7 @@ async function calcular() {
           const p = precosDB.find(pr => pr.item_id === item.id && pr.fornecedor_id === f.id);
           if (p && p.preco_unitario > 0) {
             prices[f.nome][item.nome] = parseFloat(p.preco_unitario);
+            if (p.observacao) prices[f.nome][item.nome + '__obs'] = p.observacao;
           }
         });
       });
@@ -2366,7 +2367,8 @@ async function calcular() {
   products.forEach(p=>{
     let best=null,bestPrice=Infinity;
     suppliers.forEach(s=>{const pr=(prices[s]&&prices[s][p.nome])?prices[s][p.nome]:null;if(pr!==null&&pr>0&&pr<bestPrice){bestPrice=pr;best=s;}});
-    winners[p.nome]={supplier:best,unitPrice:bestPrice===Infinity?null:bestPrice};
+    const bestObs = best && prices[best] && prices[best][p.nome + '__obs'] ? prices[best][p.nome + '__obs'] : '';
+    winners[p.nome]={supplier:best,unitPrice:bestPrice===Infinity?null:bestPrice,obs:bestObs};
   });
   const res={};
   suppliers.forEach(s=>{res[s]={items:[],total:0};});
@@ -2389,8 +2391,14 @@ async function calcular() {
     if(!res[s].items.length)return;
     cards+=`<div class="sup-card"><div class="sup-hdr"><div class="sup-name">${s}</div><div class="sup-total">${fmt(res[s].total)}</div></div>`;
     res[s].items.forEach(it=>{
-      cards+=`<div class="item-row"><div class="item-name">${it.cod?`<span style="color:var(--text3);font-size:11px">${it.cod} · </span>`:''}${it.nome.length>55?it.nome.slice(0,55)+'…':it.nome}</div>`+
-        `<div class="item-prices"><span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span><span style="font-weight:700">${fmt(it.sub)}</span><span class="badge badge-green">Mais barato</span></div></div>`;
+      cards+=`<div class="item-row">
+        <div class="item-name">
+          ${it.cod?`<span style="color:var(--text3);font-size:11px">${it.cod} · </span>`:''}
+          ${it.nome.length>55?it.nome.slice(0,55)+'…':it.nome}
+          ${it.obs?`<div style="font-size:11px;color:#795c00;background:#fff9db;border-radius:4px;padding:2px 7px;margin-top:3px;display:inline-block;">📝 ${it.obs}</div>`:''}
+        </div>
+        <div class="item-prices"><span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span><span style="font-weight:700">${fmt(it.sub)}</span><span class="badge badge-green">Mais barato</span></div>
+      </div>`;
     });
     cards+='</div>';
   });
@@ -2582,13 +2590,16 @@ async function verDetalhe(cId, nome) {
       });
       if (best) {
         const qty = parseFloat(item.quantidade) || 1;
+        const bestFornObj = forsArr.find(f => f.nome === best);
+        const bestPrecoObj = bestFornObj ? precsArr.find(pr => pr.item_id === item.id && pr.fornecedor_id === bestFornObj.id) : null;
         res[best].items.push({
           nome: item.nome,
           cod:  item.codigo || '',
           qty,
           unit: item.unidade || 'un',
           up:   bestPrice,
-          sub:  bestPrice * qty
+          sub:  bestPrice * qty,
+          obs:  bestPrecoObj?.observacao || ''
         });
         res[best].total += bestPrice * qty;
       }
@@ -2654,6 +2665,7 @@ async function verDetalhe(cId, nome) {
           <div class="item-name">
             ${it.cod ? `<span style="color:var(--text3);font-size:11px">${it.cod} · </span>` : ''}
             ${it.nome}
+            ${it.obs ? `<div style="font-size:11px;color:#795c00;background:#fff9db;border-radius:4px;padding:2px 7px;margin-top:3px;display:inline-block;">📝 ${it.obs}</div>` : ''}
           </div>
           <div class="item-prices">
             <span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span>
