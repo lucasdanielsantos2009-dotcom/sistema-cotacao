@@ -2248,8 +2248,12 @@ async function verDetalhe(cId, nome) {
       <div class="metric"><div class="metric-label">Com preço</div><div class="metric-value">${itensCotados}</div></div>
     `;
 
-    // Botão recalcular direto do histórico
+    // Botão recalcular direto do histórico — remover anterior se existir
+    const btnRecalcExist = document.getElementById('btn-recalcular-detalhe');
+    if (btnRecalcExist) btnRecalcExist.remove();
+
     const btnRecalc = document.createElement('button');
+    btnRecalc.id = 'btn-recalcular-detalhe';
     btnRecalc.className = 'btn btn-primary';
     btnRecalc.style.marginBottom = '1rem';
     btnRecalc.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Recalcular melhor oferta';
