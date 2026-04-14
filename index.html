@@ -1681,6 +1681,122 @@ async function vincularFornecedoresNaCotacao(cotacaoId) {
 }
 
 
+// ─── Vincular fornecedores ────────────────────────────────────────────────────
+async function carregarVincular() {
+  // Preencher select com fornecedores cadastrados
+  const sel = document.getElementById('vinc-forn-select');
+  if (sel) {
+    if (fornecedoresCadastrados.length) {
+      sel.innerHTML = '<option value="">Selecione o fornecedor...</option>' +
+        fornecedoresCadastrados.map(f =>
+          '<option value="' + f.id + '" data-nome="' + f.nome + '">' +
+            f.nome + (f.email ? ' · ' + f.email : '') +
+          '</option>'
+        ).join('');
+    } else {
+      sel.innerHTML = '<option value="">Nenhum fornecedor cadastrado ainda</option>';
+    }
+  }
+  await carregarListaAcessos();
+}
+
+async function carregarListaAcessos() {
+  const lista = document.getElementById('vinc-lista');
+  if (!lista) return;
+  lista.innerHTML = '<div class="empty"><span class="spinner"></span> Carregando...</div>';
+
+  try {
+    // Buscar perfis de fornecedores — usa a policy "perfil_leitura_livre" que permite SELECT a todos
+    const { data: perfis, error } = await sb
+      .from('perfis')
+      .select('id, nome, tipo, fornecedor_cadastro_id')
+      .eq('tipo', 'fornecedor');
+
+    if (error) throw error;
+
+    if (!perfis || !perfis.length) {
+      lista.innerHTML = '<div class="empty">Nenhum acesso criado ainda. Use o formulário acima para criar o primeiro acesso.</div>';
+      return;
+    }
+
+    lista.innerHTML = perfis.map(p => {
+      const forn = fornecedoresCadastrados.find(f => f.id === p.fornecedor_cadastro_id);
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap;">' +
+        '<div>' +
+          '<div style="font-weight:700;font-size:14px">' + (forn?.nome || p.nome || 'Fornecedor') + '</div>' +
+          '<div style="font-size:12px;color:var(--text2);margin-top:2px;">' +
+            (forn?.email ? '✉ ' + forn.email : '') +
+            (forn?.telefone ? ' · 📞 ' + forn.telefone : '') +
+          '</div>' +
+        '</div>' +
+        '<span class="badge badge-green">Acesso ativo</span>' +
+      '</div>';
+    }).join('');
+
+  } catch(err) {
+    lista.innerHTML = '<div class="alert alert-err">Erro ao carregar acessos: ' + err.message + '</div>';
+  }
+}
+
+async function criarAcessoFornecedor() {
+  const sel   = document.getElementById('vinc-forn-select');
+  const email = document.getElementById('vinc-email').value.trim();
+  const senha = document.getElementById('vinc-senha').value.trim();
+  const msg   = document.getElementById('vinc-msg');
+
+  if (!sel || !sel.value || !email || !senha) {
+    msg.innerHTML = '<div class="alert alert-warn">Preencha todos os campos.</div>';
+    return;
+  }
+  if (senha.length < 6) {
+    msg.innerHTML = '<div class="alert alert-warn">A senha deve ter pelo menos 6 caracteres.</div>';
+    return;
+  }
+
+  const fornId   = sel.value;
+  const fornNome = sel.options[sel.selectedIndex].getAttribute('data-nome');
+
+  msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Criando acesso...</div>';
+
+  try {
+    // Criar usuário via signUp
+    const { data: authData, error: authErr } = await sb.auth.signUp({
+      email,
+      password: senha,
+      options: { data: { tipo: 'fornecedor', fornecedor_id: fornId, nome: fornNome } }
+    });
+    if (authErr) throw authErr;
+    if (!authData.user) throw new Error('Usuário não foi criado. Tente novamente.');
+
+    // Criar perfil
+    const { error: perfilErr } = await sb.from('perfis').upsert({
+      id: authData.user.id,
+      tipo: 'fornecedor',
+      fornecedor_cadastro_id: fornId,
+      nome: fornNome
+    });
+    if (perfilErr) throw perfilErr;
+
+    msg.innerHTML =
+      '<div class="alert alert-ok">' +
+        '✓ Acesso criado para <strong>' + fornNome + '</strong>!<br>' +
+        '<span style="font-size:12px;">E-mail: ' + email + ' · Senha: ' + senha + '</span><br>' +
+        '<span style="font-size:12px;color:var(--text2);">Envie essas credenciais para o fornecedor. Ele já pode fazer login no sistema.</span>' +
+      '</div>';
+
+    sel.value = '';
+    document.getElementById('vinc-email').value = '';
+    document.getElementById('vinc-senha').value = '';
+
+    await carregarListaAcessos();
+    toast('Acesso criado para ' + fornNome + '!');
+
+  } catch(err) {
+    msg.innerHTML = '<div class="alert alert-err">Erro: ' + err.message + '</div>';
+  }
+}
+
+
 async function carregarNotificacoes() {
   if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') return;
   try {
