@@ -1065,6 +1065,7 @@ function toggleFornecedorCotacao(nome, checked) {
     }
   }
   renderFornCheckboxes();
+  atualizarBtnSalvar();
 }
 
 function selecionarTodosForn() {
@@ -1074,6 +1075,7 @@ function selecionarTodosForn() {
   renderSupplierTags();
   renderPriceTable();
   renderFornCheckboxes();
+  atualizarBtnSalvar();
 }
 
 function limparSelecaoForn() {
@@ -1084,6 +1086,7 @@ function limparSelecaoForn() {
   renderSupplierTags();
   renderPriceTable();
   renderFornCheckboxes();
+  atualizarBtnSalvar();
 }
 
 async function salvarFornecedor(editId = null) {
@@ -1766,7 +1769,7 @@ function confirmarImport() {
   pendingImport=[];
   document.getElementById('preview-wrap').style.display='none';
   showImportMsg('alert-ok',added+' item(s) importado(s) com sucesso.');
-  renderProductTags(); renderPriceTable();
+  renderProductTags(); renderPriceTable(); atualizarBtnSalvar();
 }
 
 function limparImport() {
@@ -1794,12 +1797,21 @@ function removeProduct(i) {
   products.splice(i,1); renderProductTags(); renderPriceTable();
 }
 
+function atualizarBtnSalvar() {
+  const btn = document.getElementById('btn-salvar');
+  if (!btn) return;
+  const temItens = products.length > 0;
+  const temForn  = suppliers.length > 0;
+  btn.style.display = (temItens && temForn) ? 'inline-flex' : 'none';
+}
+
 function renderProductTags() {
   document.getElementById('product-tags').innerHTML=products.map((p,i)=>
     `<span class="tag">${p.cod?'<small style="color:var(--text3)">'+p.cod+' ·</small> ':''}`+
     `${p.nome.length>40?p.nome.slice(0,40)+'…':p.nome} <small style="color:var(--text3)">${p.qty} ${p.unit}</small>`+
     ` <span class="x" onclick="removeProduct(${i})">×</span></span>`
   ).join('');
+  atualizarBtnSalvar();
 }
 
 function addFornecedor() {
@@ -1818,6 +1830,7 @@ function renderSupplierTags() {
   document.getElementById('supplier-tags').innerHTML=suppliers.map((s,i)=>
     `<span class="tag">${s} <span class="x" onclick="removeFornecedor(${i})">×</span></span>`
   ).join('');
+  atualizarBtnSalvar();
 }
 
 function renderPriceTable() {
