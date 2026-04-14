@@ -2499,9 +2499,7 @@ async function carregarHistorico() {
 
     // Botão excluir
     document.getElementById('btn-del-cot-' + cId).addEventListener('click', async function() {
-      if (!confirm('Excluir a cotação "' + cNome + '"?
-
-Todos os itens, preços e fornecedores vinculados serão removidos permanentemente e não aparecerão mais no Dashboard.')) return;
+      if (!confirm('Excluir a cotacao "' + cNome + '"? Todos os itens, precos e fornecedores serao removidos permanentemente e nao apareciao no Dashboard.')) return;
 
       const btn = this;
       btn.innerHTML = '<span class="spinner"></span>';
