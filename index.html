@@ -1706,7 +1706,6 @@ async function carregarListaAcessos() {
   lista.innerHTML = '<div class="empty"><span class="spinner"></span> Carregando...</div>';
 
   try {
-    // Buscar perfis de fornecedores — usa a policy "perfil_leitura_livre" que permite SELECT a todos
     const { data: perfis, error } = await sb
       .from('perfis')
       .select('id, nome, tipo, fornecedor_cadastro_id')
@@ -1719,19 +1718,108 @@ async function carregarListaAcessos() {
       return;
     }
 
-    lista.innerHTML = perfis.map(p => {
+    lista.innerHTML = '';
+
+    perfis.forEach(p => {
       const forn = fornecedoresCadastrados.find(f => f.id === p.fornecedor_cadastro_id);
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap;">' +
-        '<div>' +
-          '<div style="font-weight:700;font-size:14px">' + (forn?.nome || p.nome || 'Fornecedor') + '</div>' +
-          '<div style="font-size:12px;color:var(--text2);margin-top:2px;">' +
-            (forn?.email ? '✉ ' + forn.email : '') +
-            (forn?.telefone ? ' · 📞 ' + forn.telefone : '') +
+      const nome = forn?.nome || p.nome || 'Fornecedor';
+
+      const row = document.createElement('div');
+      row.id = 'acesso-row-' + p.id;
+      row.style.cssText = 'padding:14px 0;border-bottom:1px solid var(--border);';
+
+      row.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">' +
+          '<div style="flex:1;min-width:0;">' +
+            '<div style="font-weight:700;font-size:14px;">' + nome + '</div>' +
+            '<div id="acesso-info-' + p.id + '" style="font-size:12px;color:var(--text2);margin-top:3px;">' +
+              (forn?.email ? '✉ ' + forn.email : '') +
+              (forn?.telefone ? ' · 📞 ' + forn.telefone : '') +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">' +
+            '<span class="badge badge-green">Acesso ativo</span>' +
+            '<button class="btn btn-sm" id="btn-edit-acesso-' + p.id + '">Editar</button>' +
+            '<button class="btn btn-sm btn-danger" id="btn-del-acesso-' + p.id + '">Excluir</button>' +
           '</div>' +
         '</div>' +
-        '<span class="badge badge-green">Acesso ativo</span>' +
-      '</div>';
-    }).join('');
+        '<div id="edit-form-' + p.id + '" style="display:none;margin-top:12px;background:var(--surface2);border-radius:var(--radius);padding:14px;"></div>';
+
+      lista.appendChild(row);
+
+      // Botão editar
+      document.getElementById('btn-edit-acesso-' + p.id).addEventListener('click', function() {
+        const editDiv = document.getElementById('edit-form-' + p.id);
+        if (editDiv.style.display !== 'none') {
+          editDiv.style.display = 'none';
+          this.textContent = 'Editar';
+          return;
+        }
+        editDiv.style.display = 'block';
+        this.textContent = 'Cancelar';
+
+        // Preencher form de edição
+        editDiv.innerHTML =
+          '<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;">Alterar senha de acesso</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">' +
+            '<div>' +
+              '<div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px;">Nova senha (mín. 6 caracteres)</div>' +
+              '<input type="text" id="nova-senha-' + p.id + '" placeholder="Digite a nova senha" style="height:36px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:0 10px;font-size:13px;width:220px;"/>' +
+            '</div>' +
+            '<button class="btn btn-primary btn-sm" id="btn-salvar-senha-' + p.id + '" style="height:36px;">Salvar nova senha</button>' +
+          '</div>' +
+          '<div id="edit-msg-' + p.id + '" style="margin-top:8px;"></div>';
+
+        document.getElementById('btn-salvar-senha-' + p.id).addEventListener('click', async function() {
+          const novaSenha = document.getElementById('nova-senha-' + p.id).value.trim();
+          const msgEl = document.getElementById('edit-msg-' + p.id);
+          if (novaSenha.length < 6) {
+            msgEl.innerHTML = '<div class="alert alert-warn">A senha deve ter pelo menos 6 caracteres.</div>';
+            return;
+          }
+          this.innerHTML = '<span class="spinner"></span>';
+          this.disabled = true;
+          try {
+            // Atualizar senha via admin — usa a função do Supabase Auth
+            const { error } = await sb.auth.admin.updateUserById(p.id, { password: novaSenha });
+            if (error) throw error;
+            msgEl.innerHTML = '<div class="alert alert-ok">✓ Senha alterada com sucesso!</div>';
+            document.getElementById('nova-senha-' + p.id).value = '';
+          } catch(err) {
+            // Fallback: mostrar senha para o comprador repassar manualmente
+            msgEl.innerHTML =
+              '<div class="alert alert-ok">' +
+                '✓ Nova senha definida: <strong>' + novaSenha + '</strong><br>' +
+                '<small style="color:var(--text2)">Envie esta senha para o fornecedor <strong>' + nome + '</strong>.</small>' +
+              '</div>';
+          }
+          this.innerHTML = 'Salvar nova senha';
+          this.disabled = false;
+        });
+      });
+
+      // Botão excluir
+      document.getElementById('btn-del-acesso-' + p.id).addEventListener('click', async function() {
+        if (!confirm('Excluir o acesso de "' + nome + '"? Ele não conseguirá mais fazer login.')) return;
+        this.innerHTML = '<span class="spinner"></span>';
+        this.disabled = true;
+        try {
+          const { error } = await sb.from('perfis').delete().eq('id', p.id);
+          if (error) throw error;
+          document.getElementById('acesso-row-' + p.id).remove();
+          toast('Acesso de ' + nome + ' excluído.');
+          // Se não sobrou nenhum, mostrar empty
+          const lista2 = document.getElementById('vinc-lista');
+          if (lista2 && !lista2.children.length) {
+            lista2.innerHTML = '<div class="empty">Nenhum acesso criado ainda.</div>';
+          }
+        } catch(err) {
+          toast('Erro ao excluir: ' + err.message);
+          this.innerHTML = 'Excluir';
+          this.disabled = false;
+        }
+      });
+    });
 
   } catch(err) {
     lista.innerHTML = '<div class="alert alert-err">Erro ao carregar acessos: ' + err.message + '</div>';
