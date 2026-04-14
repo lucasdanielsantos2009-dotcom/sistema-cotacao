@@ -369,89 +369,96 @@ function parseCsv(text) {
 function parseRows(rows) {
   rows = rows.filter(r => r.some(c => String(c).trim() !== ''));
   if (rows.length < 2) { showImportMsg('alert-warn','Arquivo vazio.'); return; }
-  let hRow=-1, cCod=-1, cNome=-1, cQtd=-1, cUnit=-1;
-  for (let i=0; i<Math.min(rows.length,15); i++) {
-    const r = rows[i].map(c=>String(c).toLowerCase().trim());
-    const idx = r.findIndex(c=>c.includes('produto')||c.includes('item')||c.includes('descriç')||c.includes('nome'));
-    if (idx !== -1) {
-      hRow=i; cNome=idx;
-      cCod=r.findIndex(c=>c.includes('cód')||c==='código'||c==='cod'||c==='codigo');
-      cQtd=r.findIndex(c=>c.includes('qtd')||c.includes('quant'));
-      cUnit=r.findIndex(c=>c.includes('unid')||c==='un'||c==='unit');
+
+  // ── Detectar se é relatório Inovafarma ──────────────────────────────────
+  // Inovafarma: linha 5 (índice 5) tem cabeçalho com "Código" na col 0 e "Nome do produto" na col 4
+  // Produtos ficam nas linhas seguintes com código numérico na col 0 e nome na col 4
+  let isInovafarma = false;
+  let hRow = -1, cCod = -1, cNome = -1, cQtd = -1, cUnit = -1;
+
+  for (let i = 0; i < Math.min(rows.length, 15); i++) {
+    const joined = rows[i].map(c => String(c)).join('|').toLowerCase();
+    if (joined.includes('código') || joined.includes('codigo') || joined.includes('cód')) {
+      hRow = i;
+      const r = rows[i].map(c => String(c).toLowerCase().trim());
+      // Inovafarma: código=col0, nome=col4, qtde=col14
+      cCod  = r.findIndex(c => c.startsWith('cód') || c === 'código' || c === 'codigo');
+      cNome = r.findIndex(c => c.includes('nome do produto') || c.includes('produto') || c.includes('descriç'));
+      cQtd  = r.findIndex(c => c === 'qtde' || c === 'qtd' || c.includes('quant'));
+      cUnit = r.findIndex(c => c === 'un' || c === 'unid' || c.includes('unidade'));
+      if (cCod  === -1) cCod  = 0;
+      if (cNome === -1) cNome = 4;
+      if (cQtd  === -1) cQtd  = 14;
+      isInovafarma = true;
       break;
     }
   }
-  if (hRow===-1) {
-    for (let i=0; i<Math.min(rows.length,15); i++) {
-      const joined = rows[i].map(c=>String(c)).join(' ').toLowerCase();
-      if (joined.includes('código')||joined.includes('codigo')||joined.includes('cód')) {
-        hRow=i;
-        const r=rows[i].map(c=>String(c).toLowerCase().trim());
-        cCod=r.findIndex(c=>c.includes('cód')||c==='código'||c==='cod'||c==='codigo');
-        if(cCod===-1) cCod=0;
-        cNome=r.findIndex(c=>c.includes('produto')||c.includes('nome do produto')||c.includes('descriç'));
-        if(cNome===-1) cNome=4;
-        cQtd=r.findIndex(c=>c.includes('qtd')||c.includes('quant'));
-        if(cQtd===-1) cQtd=14;
+
+  // Fallback: planilha genérica com cabeçalho "Produto / Item / Nome"
+  if (!isInovafarma) {
+    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+      const r = rows[i].map(c => String(c).toLowerCase().trim());
+      const idx = r.findIndex(c => c === 'produto' || c === 'item' || c === 'nome' || c.includes('descriç'));
+      if (idx !== -1) {
+        hRow = i; cNome = idx;
+        cCod  = r.findIndex(c => c.includes('cód') || c === 'codigo');
+        cQtd  = r.findIndex(c => c.includes('qtd') || c.includes('quant'));
+        cUnit = r.findIndex(c => c === 'un' || c.includes('unid'));
         break;
       }
     }
   }
 
-  // Último recurso: se ainda não achou header, tenta detectar pelo padrão de dados
-  // (linha onde col 0 tem número e col 4 tem texto longo = linha de produto)
-  if (hRow===-1) {
-    for (let i=0; i<Math.min(rows.length,20); i++) {
-      const r=rows[i];
-      const col0=String(r[0]||'').trim();
-      const col4=String(r[4]||'').trim();
-      if (/^\d{4,}$/.test(col0) && col4.length > 5) {
-        // Esta é a primeira linha de dados — o header deve ser a anterior
-        hRow = Math.max(0, i-1);
-        cCod=0; cNome=4; cQtd=14;
-        break;
-      }
-    }
+  if (hRow === -1 || cNome === -1) {
+    showImportMsg('alert-warn', 'Não identifiquei as colunas. Use o modelo correto ou verifique se o arquivo tem cabeçalho com "Produto" ou "Código".');
+    return;
   }
 
-  if (hRow===-1||cNome===-1) { showImportMsg('alert-warn','Não identifiquei as colunas. Verifique se há cabeçalho com "Produto" ou "Código".'); return; }
-  pendingImport=[];
+  pendingImport = [];
 
-  // Estratégia Inovafarma: produtos têm código numérico na coluna 0 (col A)
-  // Se cCod aponta para col 0 e tem valor numérico => linha de produto válida
-  const usarFiltroCodigo = (cCod !== -1);
-
-  for (let i=hRow+1; i<rows.length; i++) {
-    const r=rows[i];
-    const nomeRaw=String(r[cNome]||'').trim();
-    const codRaw=cCod!==-1?String(r[cCod]||'').trim():'';
+  for (let i = hRow + 1; i < rows.length; i++) {
+    const r = rows[i];
+    const codRaw  = String(r[cCod]  || '').trim();
+    const nomeRaw = String(r[cNome] || '').trim();
 
     if (!nomeRaw) continue;
 
-    if (usarFiltroCodigo) {
-      // Só aceita linha se o código for numérico (ex: 263041, 1413)
-      const codLimpo = codRaw.replace(/\s/g,'');
-      if (!codLimpo || !/^\d+$/.test(codLimpo)) continue;
+    if (isInovafarma) {
+      // No Inovafarma, TODA linha de produto tem código numérico na col 0
+      // Se não tem código numérico = linha de cabeçalho/rodapé/total → ignora
+      if (!codRaw || !/^\d+$/.test(codRaw)) continue;
     } else {
-      // Sem coluna de código: filtra labels conhecidos
-      const nomeLow=nomeRaw.toLowerCase();
-      if (nomeRaw.endsWith(':')) continue;
-      if (nomeRaw.length < 4) continue;
-      const lixo=['total geral','qtde produto','itens:','fonte:','origem:','extraído','pedido de compra'];
-      if (lixo.some(s=>nomeLow.startsWith(s))) continue;
+      // Planilha genérica: ignora labels e linhas curtas
+      if (nomeRaw.endsWith(':') || nomeRaw.length < 3) continue;
     }
 
-    const qty=parseFloat(String(cQtd!==-1?r[cQtd]:'1').replace(',','.'))||1;
-    const unit=cUnit!==-1?String(r[cUnit]||'un').trim():'un';
-    pendingImport.push({cod:codRaw, nome:nomeRaw, qty, unit:unit||'un'});
+    // Qtde: no Inovafarma a coluna 14 vem corrompida pelo SheetJS no formato raw
+    // Usamos 1 como padrão seguro; o usuário pode ajustar na tabela de preços
+    let qty = 1;
+    if (cQtd !== -1) {
+      const qRaw = String(r[cQtd] || '').replace(',', '.').trim();
+      const qNum = parseFloat(qRaw);
+      // Aceita só se for número razoável (1–9999)
+      if (!isNaN(qNum) && qNum > 0 && qNum < 10000) qty = qNum;
+    }
+
+    const unit = (cUnit !== -1 && String(r[cUnit]||'').trim()) ? String(r[cUnit]).trim() : 'un';
+    pendingImport.push({ cod: codRaw, nome: nomeRaw, qty, unit });
   }
-  if (!pendingImport.length) { showImportMsg('alert-warn','Nenhum item válido encontrado.'); return; }
+
+  if (!pendingImport.length) {
+    showImportMsg('alert-warn', 'Nenhum item válido encontrado. Verifique se o arquivo é o relatório correto do Inovafarma.');
+    return;
+  }
+
   document.getElementById('preview-count').textContent = pendingImport.length + ' item(s) encontrado(s)';
   document.getElementById('preview-items').innerHTML =
-    pendingImport.slice(0,8).map(it=>`<span class="badge badge-blue" style="margin:2px 4px 2px 0">${it.cod?it.cod+' · ':''}${it.nome.length>45?it.nome.slice(0,45)+'…':it.nome} (${it.qty} ${it.unit})</span>`).join('')+
-    (pendingImport.length>8?`<span class="badge badge-gray" style="margin:2px">+${pendingImport.length-8} mais</span>`:'');
-  document.getElementById('preview-wrap').style.display='block';
-  showImportMsg('alert-ok', pendingImport.length+' item(s) detectado(s). Confirme para adicionar.');
+    pendingImport.slice(0, 8).map(it =>
+      `<span class="badge badge-blue" style="margin:2px 4px 2px 0">${it.cod ? it.cod + ' · ' : ''}${it.nome.length > 45 ? it.nome.slice(0,45)+'…' : it.nome} (${it.qty} ${it.unit})</span>`
+    ).join('') +
+    (pendingImport.length > 8 ? `<span class="badge badge-gray" style="margin:2px">+${pendingImport.length - 8} mais</span>` : '');
+  document.getElementById('preview-wrap').style.display = 'block';
+  showImportMsg('alert-ok', pendingImport.length + ' item(s) detectado(s). Confirme para adicionar.');
 }
 
 function confirmarImport() {
