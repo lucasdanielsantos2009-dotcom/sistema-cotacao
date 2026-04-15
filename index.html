@@ -1355,6 +1355,14 @@ async function carregarCotacoesFornecedor(user) {
     const { data: cotacoes, error: e2 } = await sb.from('cotacoes').select('*').in('id', cotacaoIds).order('criado_em', { ascending: false });
     if (e2) throw e2;
 
+    // Buscar dados das filiais vinculadas às cotações
+    const filialIds = [...new Set(cotacoes.filter(c => c.filial_id).map(c => c.filial_id))];
+    let filiaisMap = {};
+    if (filialIds.length) {
+      const { data: filiaisData } = await sb.from('filiais').select('id,nome,cnpj,cidade,endereco').in('id', filialIds);
+      (filiaisData||[]).forEach(f => { filiaisMap[f.id] = f; });
+    }
+
     wrap.innerHTML = '<div style="font-size:18px;font-weight:700;margin-bottom:1.25rem;color:var(--text)">Olá! Você tem ' + cotacoes.length + ' cotação(ões) disponível(is).</div><div id="sup-lista"></div>';
     const lista = document.getElementById('sup-lista');
 
@@ -1401,12 +1409,28 @@ async function carregarCotacoesFornecedor(user) {
       const card = document.createElement('div');
       card.className = 'card';
       card.style.marginBottom = '1rem';
+      // Filial info
+      const filialInfo = cot.filial_id && filiaisMap[cot.filial_id] ? filiaisMap[cot.filial_id] : null;
+      const filialHtml = filialInfo ?
+        '<div style="background:var(--surface2);border:1px solid var(--border);border-left:4px solid #cc1f1f;border-radius:8px;padding:10px 14px;margin-bottom:12px;">' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cc1f1f" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' +
+            '<span style="font-size:13px;font-weight:700;color:var(--text);">' + filialInfo.nome + '</span>' +
+          '</div>' +
+          '<div style="font-size:12px;color:var(--text2);margin-top:5px;display:flex;flex-wrap:wrap;gap:12px;">' +
+            (filialInfo.cnpj ? '<span><strong style="color:var(--text)">CNPJ:</strong> ' + filialInfo.cnpj + '</span>' : '') +
+            (filialInfo.cidade ? '<span><strong style="color:var(--text)">Cidade:</strong> ' + filialInfo.cidade + '</span>' : '') +
+            (filialInfo.endereco ? '<span><strong style="color:var(--text)">Endereço:</strong> ' + filialInfo.endereco + '</span>' : '') +
+          '</div>' +
+        '</div>' : '';
+
       card.innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:12px;flex-wrap:wrap;">' +
           '<div><div style="font-size:16px;font-weight:700;">' + cot.nome + '</div>' +
           '<div style="font-size:12px;color:var(--text2);margin-top:3px;">' + new Date(cot.criado_em).toLocaleDateString('pt-BR') + '</div></div>' +
           statusHtml +
         '</div>' +
+        filialHtml +
         (prazoHtml ? '<div style="margin-bottom:10px;">' + prazoHtml + '</div>' : '') +
         (jaEnviou ?
           '<div style="background:#ebfbee;border:1px solid #8ce99a;border-radius:8px;padding:10px 14px;font-size:13px;color:#1a5e2a;margin-bottom:12px;">' +
@@ -1455,11 +1479,34 @@ async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao, tota
     .select('id,criado_em').eq('cotacao_id', cotacaoId).eq('fornecedor_id', fornecedorId).eq('tipo', 'concluido').limit(1);
   const bloqueado = notifLock && notifLock.length > 0;
 
+  // Buscar filial da cotação para mostrar no topo
+  let filialAbrir = null;
+  try {
+    const { data: cotData } = await sb.from('cotacoes').select('filial_id').eq('id', cotacaoId).single();
+    if (cotData?.filial_id) {
+      const { data: filData } = await sb.from('filiais').select('nome,cnpj,cidade').eq('id', cotData.filial_id).single();
+      filialAbrir = filData;
+    }
+  } catch(e) {}
+
+  const filialBanner = filialAbrir ?
+    '<div style="background:var(--surface2);border:1px solid var(--border);border-left:4px solid #cc1f1f;border-radius:8px;padding:10px 14px;margin-bottom:1rem;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc1f1f" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>' +
+      '<div>' +
+        '<div style="font-size:14px;font-weight:700;color:var(--text);">' + filialAbrir.nome + '</div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-top:2px;">' +
+          (filialAbrir.cnpj ? 'CNPJ: ' + filialAbrir.cnpj : '') +
+          (filialAbrir.cidade ? (filialAbrir.cnpj?' · ':'') + filialAbrir.cidade : '') +
+        '</div>' +
+      '</div>' +
+    '</div>' : '';
+
   wrap.innerHTML =
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem;">' +
       '<button class="btn btn-sm" id="btn-voltar-sup">← Voltar</button>' +
       '<div style="font-size:16px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + nomeCotacao + '</div>' +
     '</div>' +
+    filialBanner +
     '<div id="sup-prog-wrap" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;margin-bottom:1rem;">' +
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:6px;">' +
         '<span id="sup-prog-label">Carregando...</span><span id="sup-prog-pct">0%</span>' +
