@@ -1024,8 +1024,37 @@ async function carregarDashboard() {
       responsive: true, maintainAspectRatio: false,
       cutout: '60%',
       plugins: {
-        legend: { position: 'right', labels: { font:{size:11}, boxWidth:12, padding:10 } },
-        tooltip: { callbacks: { label: ctx => ' R$ ' + ctx.parsed.toFixed(2).replace('.',',') } }
+        legend: {
+          position: 'right',
+          labels: {
+            font: {size:11}, boxWidth:12, padding:10,
+            generateLabels: function(chart) {
+              const total = chart.data.datasets[0].data.reduce((a,b) => a+b, 0);
+              return chart.data.labels.map((label, i) => {
+                const val = chart.data.datasets[0].data[i];
+                const pct = total > 0 ? ((val/total)*100).toFixed(1) : '0.0';
+                return {
+                  text: label + ' — ' + pct + '%',
+                  fillStyle: chart.data.datasets[0].backgroundColor[i],
+                  strokeStyle: '#fff',
+                  lineWidth: 2,
+                  index: i,
+                  hidden: false
+                };
+              });
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+              const val = ctx.parsed;
+              const pct = total > 0 ? ((val/total)*100).toFixed(1) : '0.0';
+              return '  R$ ' + val.toFixed(2).replace('.',',') + '  (' + pct + '%)';
+            }
+          }
+        }
       }
     }
   });
@@ -1513,7 +1542,7 @@ function renderDesktop(itens, precosMap, fornecedorId, cotacaoId) {
   const tbody = document.getElementById('sup-itens-body');
   itens.forEach(item => {
     const p = precosMap[item.id];
-    const val = p ? p.preco_unitario : '';
+    const val = p ? parseFloat(p.preco_unitario).toFixed(2) : '';
     const obs = p ? (p.observacao||'') : '';
     const qty = parseFloat(item.quantidade)||1;
     const sub = val ? 'R$ '+(val*qty).toFixed(2).replace('.',',') : '—';
@@ -1522,7 +1551,7 @@ function renderDesktop(itens, precosMap, fornecedorId, cotacaoId) {
       '<td style="color:var(--text2);font-size:12px">' + (item.codigo||'—') + '</td>' +
       '<td title="' + item.nome + '">' + (item.nome.length>45?item.nome.slice(0,45)+'…':item.nome) + '</td>' +
       '<td style="color:var(--text2)">' + qty + '</td>' +
-      '<td><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="' + val + '" id="sp-' + item.id + '" data-item-id="' + item.id + '" data-preco-id="' + (p?.id||'') + '" data-qty="' + qty + '" style="width:120px;height:34px;font-size:14px;border-radius:6px;border:1px solid var(--border2);padding:0 10px;background:var(--surface);color:var(--text);"/></td>' +
+      '<td><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="' + val + '" id="sp-' + item.id + '" data-item-id="' + item.id + '" data-preco-id="' + (p?.id||'') + '" data-qty="' + qty + '" style="width:120px;height:34px;font-size:14px;border-radius:6px;border:1px solid var(--border2);padding:0 10px;background:var(--surface);color:var(--text);" onblur="if(this.value&&parseFloat(this.value)>0){this.value=parseFloat(this.value).toFixed(2);}" onfocus="this.select()"/></td>' +
       '<td id="ssub-' + item.id + '" style="font-weight:700;color:var(--green);">' + sub + '</td>' +
       '<td><input type="text" placeholder="Opcional..." value="' + obs + '" id="sobs-' + item.id + '" style="width:150px;height:30px;font-size:12px;border-radius:6px;border:1px solid var(--border2);padding:0 8px;background:var(--surface);color:var(--text);"/></td>';
     tbody.appendChild(tr);
@@ -1564,7 +1593,7 @@ function renderMobile(itens, precosMap, fornecedorId, cotacaoId) {
           '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;">' + item.nome + '</div>' +
           '<div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Qtd: ' + qty + ' ' + (item.unidade||'un') + (item.codigo?' · Cód: '+item.codigo:'') + '</div>' +
           '<label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">Seu preço (R$/un)</label>' +
-          '<input type="number" id="mob-price" inputmode="decimal" placeholder="0,00" value="' + (p?p.preco_unitario:'') + '" ' +
+          '<input type="number" id="mob-price" inputmode="decimal" placeholder="0,00" value="' + (p&&p.preco_unitario?parseFloat(p.preco_unitario).toFixed(2):'') + '" ' +
             'style="width:100%;height:56px;font-size:22px;font-weight:700;border-radius:var(--radius);border:2px solid var(--border2);padding:0 16px;background:var(--surface);color:var(--text);text-align:right;"/>' +
           '<div id="mob-sub" style="text-align:right;font-size:13px;color:var(--green);font-weight:700;margin-top:6px;min-height:20px;">' +
             (p && p.preco_unitario ? 'R$ '+(p.preco_unitario*qty).toFixed(2).replace('.',',') : '') +
@@ -2271,7 +2300,11 @@ function renderPriceTable() {
       if(!prices[s])prices[s]={};
       const v=(prices[s][p.nome]!==undefined && prices[s][p.nome]!==0) ? prices[s][p.nome] : '';
       const sEsc=s.replace(/"/g,'&quot;'), pEsc=p.nome.replace(/"/g,'&quot;');
-      return `<td><input type="number" min="0" step="0.01" placeholder="0,00" value="${v}" data-s="${sEsc}" data-p="${pEsc}" onchange="setPrice(${JSON.stringify(s)},${JSON.stringify(p.nome)},this.value)"/></td>`;
+      return `<td><input type="number" min="0" step="0.01" placeholder="0,00" value="${v}" data-s="${sEsc}" data-p="${pEsc}"
+  onchange="setPrice(${JSON.stringify(s)},${JSON.stringify(p.nome)},this.value)"
+  onblur="if(this.value&&parseFloat(this.value)>0){this.value=parseFloat(this.value).toFixed(2);}"
+  onfocus="this.select()"
+  /></td>`;
     }).join('');
     html+=`<tr><td style="color:var(--text2);font-size:12px">${p.cod||'—'}</td><td title="${p.nome}">${p.nome.length>45?p.nome.slice(0,45)+'…':p.nome}</td><td style="color:var(--text2)">${p.qty}</td>${cells}</tr>`;
   });
