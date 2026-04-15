@@ -256,6 +256,10 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
       Fornecedores
     </button>
+    <button class="nav-item" id="nav-filiais" onclick="navTo('filiais','nav-filiais');carregarFiliais()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Filiais
+    </button>
     <button class="nav-item" id="nav-vincular" onclick="navTo('vincular','nav-vincular');carregarVincular()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
       Vincular fornecedores
@@ -285,10 +289,16 @@
 
       <div class="card">
         <div class="card-title">Identificação da cotação</div>
-        <div class="form-row">
+        <div class="form-row" style="flex-wrap:wrap;">
           <input type="text" id="cotacao-nome" placeholder="Ex: Pedido Eurofarma — Abril/2026" style="flex:1;min-width:200px;"/>
           <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-            <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap;">Prazo limite:</label>
+            <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap;">Filial:</label>
+            <select id="cotacao-filial" style="height:36px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:0 10px;font-size:13px;font-family:inherit;min-width:160px;">
+              <option value="">Todas as filiais</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap;">Prazo:</label>
             <input type="datetime-local" id="cotacao-prazo" style="height:36px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:0 10px;font-size:13px;font-family:inherit;"/>
           </div>
         </div>
@@ -394,6 +404,42 @@
       <div class="page-sub">Visão geral de todas as cotações salvas.</div>
       <div id="dash-content">
         <div class="empty"><span class="spinner"></span> Carregando...</div>
+      </div>
+    </div>
+
+    <!-- FILIAIS -->
+    <div id="page-filiais" class="page">
+      <div class="page-title">Filiais</div>
+      <div class="page-sub">Gerencie as unidades da Rede Drogavaz. Cada cotação pode ser vinculada a uma filial.</div>
+      <div class="card">
+        <div class="card-title">Nova filial</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Nome *</div>
+            <input type="text" id="fil-nome" placeholder="Ex: Drogavaz Filial 02" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Cidade</div>
+            <input type="text" id="fil-cidade" placeholder="Ex: Silvania - GO" style="width:100%"/>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">CNPJ</div>
+            <input type="text" id="fil-cnpj" placeholder="Ex: 00.000.000/0001-00" style="width:100%"/>
+          </div>
+          <div style="grid-column:1/-1;">
+            <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;">Endereço</div>
+            <input type="text" id="fil-end" placeholder="Ex: R. Maria da Conceição, 07" style="width:100%"/>
+          </div>
+        </div>
+        <div id="fil-msg"></div>
+        <button class="btn btn-primary" onclick="salvarFilial()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Salvar filial
+        </button>
+      </div>
+      <div class="card">
+        <div class="card-title">Filiais cadastradas</div>
+        <div id="filiais-lista"><div class="empty">Carregando...</div></div>
       </div>
     </div>
 
@@ -1984,6 +2030,201 @@ async function criarAcessoFornecedor() {
 }
 
 
+// ─── Filiais ──────────────────────────────────────────────────────────────────
+let filiais = [];
+
+async function carregarFiliais() {
+  const lista = document.getElementById('filiais-lista');
+  if (!lista) return;
+  lista.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
+  try {
+    const { data, error } = await sb.from('filiais').select('*').order('nome');
+    if (error) throw error;
+    filiais = data || [];
+    atualizarSelectFiliais();
+    if (!filiais.length) {
+      lista.innerHTML = '<div class="empty">Nenhuma filial cadastrada ainda.</div>';
+      return;
+    }
+    lista.innerHTML = '';
+    filiais.forEach(f => {
+      const row = document.createElement('div');
+      row.id = 'fil-row-' + f.id;
+      row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap;';
+      row.innerHTML =
+        '<div style="flex:1;">' +
+          '<div style="font-weight:700;font-size:14px;">' + f.nome + '</div>' +
+          '<div style="font-size:12px;color:var(--text2);margin-top:2px;">' +
+            (f.cidade ? f.cidade : '') +
+            (f.cnpj ? ' · ' + f.cnpj : '') +
+            (f.endereco ? ' · ' + f.endereco : '') +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;">' +
+          '<span style="background:' + (f.ativa?'var(--green-bg)':'var(--surface2)') + ';color:' + (f.ativa?'var(--green)':'var(--text2)') + ';font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">' + (f.ativa?'Ativa':'Inativa') + '</span>' +
+          '<button class="btn btn-sm btn-danger" id="btn-del-fil-' + f.id + '">Excluir</button>' +
+        '</div>';
+      lista.appendChild(row);
+      document.getElementById('btn-del-fil-' + f.id).addEventListener('click', async function() {
+        if (!confirm('Excluir a filial "' + f.nome + '"?')) return;
+        const { error } = await sb.from('filiais').delete().eq('id', f.id);
+        if (error) { toast('Erro: ' + error.message); return; }
+        document.getElementById('fil-row-' + f.id)?.remove();
+        filiais = filiais.filter(x => x.id !== f.id);
+        atualizarSelectFiliais();
+        toast('Filial excluída.');
+      });
+    });
+  } catch(err) {
+    lista.innerHTML = '<div class="alert alert-err">Erro: ' + err.message + '</div>';
+  }
+}
+
+function atualizarSelectFiliais() {
+  const sel = document.getElementById('cotacao-filial');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Todas as filiais</option>' +
+    filiais.map(f => '<option value="' + f.id + '">' + f.nome + '</option>').join('');
+}
+
+async function salvarFilial(editId = null) {
+  const nome    = document.getElementById('fil-nome').value.trim();
+  const cidade  = document.getElementById('fil-cidade').value.trim();
+  const cnpj    = document.getElementById('fil-cnpj').value.trim();
+  const endereco= document.getElementById('fil-end').value.trim();
+  const msg     = document.getElementById('fil-msg');
+  if (!nome) { msg.innerHTML = '<div class="alert alert-warn">O nome é obrigatório.</div>'; return; }
+  const payload = { nome, cidade: cidade||null, cnpj: cnpj||null, endereco: endereco||null };
+  let error;
+  if (editId) {
+    ({ error } = await sb.from('filiais').update(payload).eq('id', editId));
+  } else {
+    ({ error } = await sb.from('filiais').insert(payload));
+  }
+  if (error) { msg.innerHTML = '<div class="alert alert-err">Erro: ' + error.message + '</div>'; return; }
+  ['fil-nome','fil-cidade','fil-cnpj','fil-end'].forEach(id => document.getElementById(id).value = '');
+  msg.innerHTML = '<div class="alert alert-ok">✓ Filial salva!</div>';
+  setTimeout(() => { if(document.getElementById('fil-msg')) document.getElementById('fil-msg').innerHTML=''; }, 3000);
+  await carregarFiliais();
+  toast('Filial salva!');
+}
+
+// ─── Duplicar cotação ─────────────────────────────────────────────────────────
+async function duplicarCotacao(cotacaoId, nomeOriginal) {
+  if (!confirm('Duplicar a cotação "' + nomeOriginal + '"? Uma nova cotação será criada com os mesmos itens e fornecedores, com preços em branco.')) return;
+  try {
+    const { data: { user } } = await sb.auth.getUser();
+    const novoNome = 'Cópia — ' + nomeOriginal;
+
+    // Buscar dados originais
+    const { data: cotOriginal } = await sb.from('cotacoes').select('*').eq('id', cotacaoId).single();
+    const { data: itensOrig }   = await sb.from('itens').select('*').eq('cotacao_id', cotacaoId);
+    const { data: forsOrig }    = await sb.from('fornecedores').select('*').eq('cotacao_id', cotacaoId);
+
+    // Criar nova cotação
+    const { data: novaCot, error: e1 } = await sb.from('cotacoes')
+      .insert({ nome: novoNome, user_id: user?.id, status: 'aberta', filial_id: cotOriginal?.filial_id || null })
+      .select().single();
+    if (e1) throw e1;
+
+    // Duplicar itens
+    if (itensOrig?.length) {
+      const { error: e2 } = await sb.from('itens').insert(
+        itensOrig.map(i => ({ cotacao_id: novaCot.id, codigo: i.codigo, nome: i.nome, quantidade: i.quantidade, unidade: i.unidade }))
+      );
+      if (e2) throw e2;
+    }
+
+    // Duplicar fornecedores (sem preços — em branco)
+    if (forsOrig?.length) {
+      const { data: novosFors, error: e3 } = await sb.from('fornecedores').insert(
+        forsOrig.map(f => ({ cotacao_id: novaCot.id, nome: f.nome }))
+      ).select();
+      if (e3) throw e3;
+      // Vincular user_id dos fornecedores
+      await vincularFornecedoresNaCotacao(novaCot.id);
+    }
+
+    toast('Cotação duplicada! Acesse o Histórico para ver.');
+    await carregarHistorico();
+  } catch(err) {
+    toast('Erro ao duplicar: ' + err.message);
+  }
+}
+
+// ─── Histórico de preços por produto ─────────────────────────────────────────
+async function verHistoricoPreco(nomeProduto) {
+  const wrap = document.getElementById('detalhe-cards');
+  if (!wrap) return;
+
+  // Buscar todas as ocorrências deste produto em cotações
+  const { data: itens } = await sb.from('itens').select('id, cotacao_id, quantidade').ilike('nome', nomeProduto);
+  if (!itens?.length) { toast('Nenhum histórico encontrado.'); return; }
+
+  const itemIds = itens.map(i => i.id);
+  const cotIds  = [...new Set(itens.map(i => i.cotacao_id))];
+
+  const { data: cotacoes } = await sb.from('cotacoes').select('id, nome, criado_em').in('id', cotIds).order('criado_em');
+  const { data: precos }   = await sb.from('precos').select('*, fornecedores(nome)').in('item_id', itemIds);
+  const { data: fors }     = await sb.from('fornecedores').select('id, nome, cotacao_id').in('cotacao_id', cotIds);
+
+  // Montar dados por fornecedor e data
+  const fornSet = [...new Set((fors||[]).map(f => f.nome))].sort();
+  const rows = (cotacoes||[]).map(cot => {
+    const itsCot = itens.filter(i => i.cotacao_id === cot.id);
+    const row = { data: new Date(cot.criado_em).toLocaleDateString('pt-BR'), nome: cot.nome };
+    fornSet.forEach(fn => {
+      const forObj = (fors||[]).find(f => f.nome === fn && f.cotacao_id === cot.id);
+      if (forObj) {
+        const itemCot = itsCot[0];
+        const preco = itemCot ? (precos||[]).find(p => p.item_id === itemCot.id && p.fornecedores?.nome === fn) : null;
+        row[fn] = preco ? parseFloat(preco.preco_unitario) : null;
+      } else {
+        row[fn] = null;
+      }
+    });
+    return row;
+  });
+
+  // Render histórico
+  const tableHead = '<tr><th>Data</th><th>Cotação</th>' + fornSet.map(f => '<th>' + f + '</th>').join('') + '</tr>';
+  const tableBody = rows.map(r => {
+    const vals = fornSet.map(f => r[f]);
+    const min  = Math.min(...vals.filter(v => v !== null));
+    return '<tr><td style="color:var(--text2);font-size:12px">' + r.data + '</td><td>' + r.nome + '</td>' +
+      fornSet.map(f => {
+        const v = r[f];
+        if (v === null) return '<td style="color:var(--text3)">—</td>';
+        const isMin = v === min;
+        return '<td style="font-weight:' + (isMin?'700':'400') + ';color:' + (isMin?'var(--green)':'var(--text)') + '">R$ ' + v.toFixed(2).replace('.',',') + (isMin?' ✓':'') + '</td>';
+      }).join('') + '</tr>';
+  }).join('');
+
+  // Show modal-like overlay in detalhe area
+  const histDiv = document.createElement('div');
+  histDiv.style.cssText = 'margin-top:1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;';
+  histDiv.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);">' +
+      '<div>' +
+        '<div style="font-size:15px;font-weight:700;">Histórico de preços</div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-top:2px;">' + nomeProduto + '</div>' +
+      '</div>' +
+      '<button class="btn btn-sm" id="btn-fechar-hist-preco">× Fechar</button>' +
+    '</div>' +
+    '<div class="tbl-wrap" style="padding:0;">' +
+      '<table><thead>' + tableHead + '</thead><tbody>' + tableBody + '</tbody></table>' +
+    '</div>';
+
+  // Remove previous if exists
+  document.getElementById('hist-preco-panel')?.remove();
+  histDiv.id = 'hist-preco-panel';
+  wrap.before(histDiv);
+
+  document.getElementById('btn-fechar-hist-preco').addEventListener('click', () => histDiv.remove());
+  histDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+
 async function carregarNotificacoes() {
   if (!sb || SUPABASE_URL === 'COLE_SUA_URL_AQUI') return;
   try {
@@ -2019,6 +2260,7 @@ async function init() {
     } else {
       mostrarApp(session.user);
       await carregarFornecedoresCadastro();
+      await carregarFiliais();
       navTo('dashboard', 'nav-dash');
       await carregarDashboard();
       carregarNotificacoes();
@@ -2345,8 +2587,9 @@ async function liberarParaFornecedores() {
     const prazo = prazoVal ? new Date(prazoVal).toISOString() : null;
 
     // Salvar cotação
+    const filialId = document.getElementById('cotacao-filial')?.value || null;
     const { data: cotacao, error: e1 } = await sb.from('cotacoes')
-      .insert({ nome, user_id: user?.id, prazo_limite: prazo, status: 'aberta' })
+      .insert({ nome, user_id: user?.id, prazo_limite: prazo, status: 'aberta', filial_id: filialId || null })
       .select().single();
     if (e1) throw e1;
 
@@ -2598,9 +2841,11 @@ async function carregarHistorico() {
         '<div class="hist-name">' + c.nome + '</div>' +
         '<div class="hist-meta">' + new Date(c.criado_em).toLocaleString('pt-BR') + prazoInfo + '</div>' +
       '</div>' +
-      '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">' +
+      '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;">' +
         '<span id="notif-cot-' + c.id + '" style="display:none;background:#ebfbee;color:#2f9e44;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;"></span>' +
+        (c.filial_id ? '<span style="background:var(--brand-light);color:var(--brand);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">' + (filiais.find(f=>f.id===c.filial_id)?.nome||'Filial') + '</span>' : '') +
         '<button class="btn btn-sm" id="btn-hist-' + c.id + '">Ver resultado</button>' +
+        '<button class="btn btn-sm" id="btn-dup-' + c.id + '" title="Duplicar cotação">⧉ Duplicar</button>' +
         '<button class="btn btn-sm btn-danger" id="btn-del-cot-' + c.id + '" title="Excluir cotação">' +
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>' +
           ' Excluir' +
@@ -2622,6 +2867,11 @@ async function carregarHistorico() {
     // Botão ver resultado
     document.getElementById('btn-hist-' + cId).addEventListener('click', function() {
       verDetalhe(cId, cNome);
+    });
+
+    // Botão duplicar
+    document.getElementById('btn-dup-' + cId).addEventListener('click', function() {
+      duplicarCotacao(cId, cNome);
     });
 
     // Botão excluir
@@ -2780,6 +3030,7 @@ async function verDetalhe(cId, nome) {
           <div class="sup-total">${fmt(res[f.nome].total)}</div>
         </div>`;
       res[f.nome].items.forEach(it => {
+        const nomeEsc = it.nome.replace(/'/g,"\'");
         cards += `<div class="item-row">
           <div class="item-name">
             ${it.cod ? `<span style="color:var(--text3);font-size:11px">${it.cod} · </span>` : ''}
@@ -2790,6 +3041,7 @@ async function verDetalhe(cId, nome) {
             <span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span>
             <span style="font-weight:700">${fmt(it.sub)}</span>
             <span class="badge badge-green">Mais barato</span>
+            <button onclick="verHistoricoPreco('${nomeEsc}')" style="height:22px;padding:0 8px;border-radius:4px;border:1px solid var(--border);background:transparent;font-size:10px;color:var(--text2);cursor:pointer;" title="Ver histórico de preço">📈 Histórico</button>
           </div>
         </div>`;
       });
