@@ -2792,14 +2792,26 @@ async function excluirItemCotacao(itemId, cotacaoId) {
 async function buscarMediaHistorica(nomeProduto, nomeFornecedor) {
   if (!sb) return null;
   try {
-    // Buscar todas as cotações anteriores (exceto a atual)
-    const { data: fors } = await sb.from('fornecedores').select('id, cotacao_id').eq('nome', nomeFornecedor);
+    // Buscar IDs do fornecedor em todas as cotações (exceto a atual)
+    const { data: fors } = await sb.from('fornecedores')
+      .select('id, cotacao_id')
+      .eq('nome', nomeFornecedor);
     if (!fors?.length) return null;
 
-    const forIds = fors.map(f => f.id);
+    // Excluir fornecedores da cotação atual
+    const forsAnteriores = cotacaoAtualId
+      ? fors.filter(f => f.cotacao_id !== cotacaoAtualId)
+      : fors;
+    if (!forsAnteriores.length) return null;
 
-    // Buscar itens com esse nome
-    const { data: itens } = await sb.from('itens').select('id').ilike('nome', nomeProduto);
+    const forIds = forsAnteriores.map(f => f.id);
+
+    // Buscar itens com esse nome em cotações anteriores
+    const cotIdsAnt = [...new Set(forsAnteriores.map(f => f.cotacao_id))];
+    const { data: itens } = await sb.from('itens')
+      .select('id, cotacao_id')
+      .ilike('nome', nomeProduto)
+      .in('cotacao_id', cotIdsAnt);
     if (!itens?.length) return null;
 
     const itemIds = itens.map(i => i.id);
@@ -2813,18 +2825,13 @@ async function buscarMediaHistorica(nomeProduto, nomeFornecedor) {
 
     if (!precos?.length) return null;
 
-    // Calcular média apenas com cotações ANTERIORES (excluindo a atual)
-    // Se não houver histórico anterior, retorna null (sem alerta na primeira cotação)
-    let precosAnteriores = precos;
-    if (cotacaoAtualId) {
-      const forsAtual = fors.filter(f => f.cotacao_id === cotacaoAtualId).map(f => f.id);
-      precosAnteriores = precos.filter(p => !forsAtual.includes(p.fornecedor_id));
-    }
+    // Calcular média e também retornar último preço
+    const vals = precos.map(p => parseFloat(p.preco_unitario));
+    const media = vals.reduce((a,b) => a+b, 0) / vals.length;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
 
-    if (!precosAnteriores.length) return null;
-
-    const soma = precosAnteriores.reduce((acc, p) => acc + parseFloat(p.preco_unitario), 0);
-    return { media: soma / precosAnteriores.length, total: precosAnteriores.length };
+    return { media, min, max, total: vals.length };
   } catch(e) { return null; }
 }
 
@@ -2949,7 +2956,7 @@ async function calcular() {
         : it.alerta === 'medio'
         ? `<span style="background:#fff9db;color:#795c00;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #ffd43b;">⚡ +${it.variacao.toFixed(1)}% vs média</span>`
         : '';
-      const mediaInfo = it.media ? `<span style="font-size:11px;color:var(--text3)">Média hist.: ${fmt(it.media)}</span>` : '';
+      const mediaInfo = it.media ? `<span style="font-size:11px;color:var(--text3)" title="Média das ${it.total||'anteriores'} cotações anteriores">Média ant.: ${fmt(it.media)}</span>` : '';
       cards+=`<div class="item-row" style="${it.alerta==='alto'?'background:#fff8f8;':it.alerta==='medio'?'background:#fffdf0;':''}">
         <div class="item-name">
           ${it.cod?`<span style="color:var(--text3);font-size:11px">${it.cod} · </span>`:''}
@@ -3370,7 +3377,7 @@ async function verDetalhe(cId, nome) {
             ${it.obs ? `<div style="font-size:11px;color:#795c00;background:#fff9db;border-radius:4px;padding:2px 7px;margin-top:3px;display:inline-block;">📝 ${it.obs}</div>` : ''}
           </div>
           <div class="item-prices" style="flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-            ${it.media ? `<span style="font-size:11px;color:var(--text3)">Média: ${fmt(it.media)}</span>` : ''}
+            ${it.media ? `<span style="font-size:11px;color:var(--text3)" title="Média das cotações anteriores">Média ant.: ${fmt(it.media)}</span>` : ''}
             <span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span>
             <span style="font-weight:700">${fmt(it.sub)}</span>
             <span class="badge badge-green">Mais barato</span>
