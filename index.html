@@ -2710,6 +2710,59 @@ async function liberarParaFornecedores() {
   }
 }
 
+function toggleTransferir(itemId) {
+  const sel = document.getElementById('transf-sel-' + itemId);
+  const btn = document.getElementById('btn-transf-' + itemId);
+  if (!sel) return;
+  const isOpen = sel.style.display !== 'none';
+  sel.style.display = isOpen ? 'none' : 'inline-flex';
+  if (btn) {
+    btn.style.display = isOpen ? 'inline-flex' : 'none';
+  }
+}
+
+async function confirmarTransferencia(itemId, fornAtual, cotacaoId) {
+  const sel = document.getElementById('transf-forn-' + itemId);
+  if (!sel || !sel.value) { toast('Selecione um fornecedor.'); return; }
+
+  const novoForn = sel.value;
+  if (novoForn === fornAtual) { toast('Escolha um fornecedor diferente do atual.'); return; }
+
+  const btnConf = sel.nextElementSibling;
+  if (btnConf) { btnConf.textContent = '...'; btnConf.disabled = true; }
+
+  try {
+    // Buscar fornecedores da cotação
+    const { data: fors } = await sb.from('fornecedores').select('id,nome').eq('cotacao_id', cotacaoId);
+    const fornAtualObj = fors?.find(f => f.nome === fornAtual);
+    const novoFornObj  = fors?.find(f => f.nome === novoForn);
+    if (!fornAtualObj || !novoFornObj) throw new Error('Fornecedor não encontrado.');
+
+    // Marcar preço do novo fornecedor como "preferido" (coluna preferido = true)
+    // e desmarcar o antigo
+    await sb.from('precos')
+      .update({ preferido: false })
+      .eq('item_id', itemId)
+      .eq('fornecedor_id', fornAtualObj.id);
+
+    await sb.from('precos')
+      .update({ preferido: true })
+      .eq('item_id', itemId)
+      .eq('fornecedor_id', novoFornObj.id);
+
+    const { data: itemData } = await sb.from('itens').select('nome').eq('id', itemId).single();
+    const nomeItem = itemData?.nome?.slice(0,35) || 'Item';
+
+    toast('✓ "' + nomeItem + '…" transferido para ' + novoForn);
+    await verDetalhe(cotacaoId, document.getElementById('detalhe-titulo').textContent);
+
+  } catch(err) {
+    toast('Erro: ' + err.message);
+    if (btnConf) { btnConf.textContent = '✓ Confirmar'; btnConf.disabled = false; }
+  }
+}
+
+
 async function excluirItemCotacao(itemId, cotacaoId) {
   if (!confirm('Excluir este item da cotação? Os preços já preenchidos para ele também serão removidos.')) return;
   try {
@@ -3178,13 +3231,27 @@ async function verDetalhe(cId, nome) {
 
     itensArr.forEach(item => {
       let best = null, bestPrice = Infinity;
-      forsArr.forEach(f => {
-        const p = precsArr.find(pr => pr.item_id === item.id && pr.fornecedor_id === f.id);
-        if (p && parseFloat(p.preco_unitario) > 0 && parseFloat(p.preco_unitario) < bestPrice) {
-          bestPrice = parseFloat(p.preco_unitario);
-          best = f.nome;
+
+      // Primeiro verificar se há um fornecedor marcado como "preferido" manualmente
+      const prefPreco = precsArr.find(pr => pr.item_id === item.id && pr.preferido === true);
+      if (prefPreco) {
+        const prefForn = forsArr.find(f => f.id === prefPreco.fornecedor_id);
+        if (prefForn) {
+          best = prefForn.nome;
+          bestPrice = parseFloat(prefPreco.preco_unitario);
         }
-      });
+      }
+
+      // Se não há preferido, usar menor preço normal
+      if (!best) {
+        forsArr.forEach(f => {
+          const p = precsArr.find(pr => pr.item_id === item.id && pr.fornecedor_id === f.id);
+          if (p && parseFloat(p.preco_unitario) > 0 && parseFloat(p.preco_unitario) < bestPrice) {
+            bestPrice = parseFloat(p.preco_unitario);
+            best = f.nome;
+          }
+        });
+      }
       if (best) {
         const qty = parseFloat(item.quantidade) || 1;
         const bestFornObj = forsArr.find(f => f.nome === best);
@@ -3260,18 +3327,42 @@ async function verDetalhe(cId, nome) {
         </div>`;
       res[f.nome].items.forEach(it => {
         const nomeEsc = it.nome.replace(/'/g,"\'");
+        const fornNomeEsc = f.nome.replace(/'/g,"\'");
+        // Outros fornecedores que cotaram este item com preço
+        const outrosForn = forsArr.filter(ff => {
+          if (ff.nome === f.nome) return false;
+          return precsArr.some(pr => pr.item_id === it.itemId && pr.fornecedor_id === ff.id && parseFloat(pr.preco_unitario) > 0);
+        });
+        const opcoesTransf = outrosForn.map(ff => {
+          const p = precsArr.find(pr => pr.item_id === it.itemId && pr.fornecedor_id === ff.id);
+          const v = p ? parseFloat(p.preco_unitario) : 0;
+          return '<option value="' + ff.nome.replace(/"/g,'&quot;') + '" data-preco="' + v + '">' + ff.nome + ' — R$ ' + v.toFixed(2).replace('.',',') + '</option>';
+        }).join('');
+
         cards += `<div class="item-row" id="detalhe-item-row-${it.itemId||''}">
-          <div class="item-name">
+          <div class="item-name" style="flex:1;min-width:0;">
             ${it.cod ? `<span style="color:var(--text3);font-size:11px">${it.cod} · </span>` : ''}
             ${it.nome}
             ${it.obs ? `<div style="font-size:11px;color:#795c00;background:#fff9db;border-radius:4px;padding:2px 7px;margin-top:3px;display:inline-block;">📝 ${it.obs}</div>` : ''}
           </div>
-          <div class="item-prices">
+          <div class="item-prices" style="flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
             <span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span>
             <span style="font-weight:700">${fmt(it.sub)}</span>
             <span class="badge badge-green">Mais barato</span>
-            <button onclick="verHistoricoPreco('${nomeEsc}')" style="height:22px;padding:0 8px;border-radius:4px;border:1px solid var(--border);background:transparent;font-size:10px;color:var(--text2);cursor:pointer;" title="Ver histórico de preço">📈 Histórico</button>
-            ${it.itemId ? `<button onclick="excluirItemCotacao('${it.itemId}','${cId}')" style="height:22px;width:22px;border-radius:4px;border:1px solid #ffa8a8;background:#fff5f5;color:#cc1f1f;cursor:pointer;font-size:14px;line-height:1;padding:0;" title="Excluir este item da cotação">×</button>` : ''}
+            ${outrosForn.length > 0 ? `<span id="transf-wrap-${it.itemId}" style="display:inline-flex;align-items:center;gap:4px;">
+              <button id="btn-transf-${it.itemId}" onclick="toggleTransferir('${it.itemId}')"
+                style="height:22px;padding:0 8px;border-radius:4px;border:1px solid #74c0fc;background:#e7f5ff;color:#1971c2;font-size:10px;font-weight:700;cursor:pointer;">⇄ Transferir</button>
+              <span id="transf-sel-${it.itemId}" style="display:none;">
+                <select id="transf-forn-${it.itemId}"
+                  style="height:26px;font-size:12px;border-radius:4px;border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:0 6px;margin:0 3px;">` + opcoesTransf + `</select>
+                <button onclick="confirmarTransferencia('${it.itemId}','${fornNomeEsc}','${cId}')"
+                  style="height:26px;padding:0 10px;border-radius:4px;border:none;background:#2f9e44;color:#fff;font-size:12px;font-weight:700;cursor:pointer;">✓ Confirmar</button>
+                <button onclick="toggleTransferir('${it.itemId}')"
+                  style="height:26px;padding:0 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12px;cursor:pointer;">Cancelar</button>
+              </span>
+            </span>` : ''}
+            <button onclick="verHistoricoPreco('${nomeEsc}')" style="height:22px;padding:0 8px;border-radius:4px;border:1px solid var(--border);background:transparent;font-size:10px;color:var(--text2);cursor:pointer;">📈 Histórico</button>
+            ${it.itemId ? `<button onclick="excluirItemCotacao('${it.itemId}','${cId}')" style="height:22px;width:22px;border-radius:4px;border:1px solid #ffa8a8;background:#fff5f5;color:#cc1f1f;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button>` : ''}
           </div>
         </div>`;
       });
