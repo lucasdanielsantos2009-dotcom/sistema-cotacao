@@ -2813,17 +2813,18 @@ async function buscarMediaHistorica(nomeProduto, nomeFornecedor) {
 
     if (!precos?.length) return null;
 
-    // Excluir cotação atual dos cálculos
-    let precosValidos = precos;
+    // Calcular média apenas com cotações ANTERIORES (excluindo a atual)
+    // Se não houver histórico anterior, retorna null (sem alerta na primeira cotação)
+    let precosAnteriores = precos;
     if (cotacaoAtualId) {
       const forsAtual = fors.filter(f => f.cotacao_id === cotacaoAtualId).map(f => f.id);
-      precosValidos = precos.filter(p => !forsAtual.includes(p.fornecedor_id));
+      precosAnteriores = precos.filter(p => !forsAtual.includes(p.fornecedor_id));
     }
 
-    if (!precosValidos.length) return null;
+    if (!precosAnteriores.length) return null;
 
-    const soma = precosValidos.reduce((acc, p) => acc + parseFloat(p.preco_unitario), 0);
-    return soma / precosValidos.length;
+    const soma = precosAnteriores.reduce((acc, p) => acc + parseFloat(p.preco_unitario), 0);
+    return { media: soma / precosAnteriores.length, total: precosAnteriores.length };
   } catch(e) { return null; }
 }
 
@@ -2901,7 +2902,7 @@ async function calcular() {
   suppliers.forEach(s=>{res[s]={items:[],total:0};});
   products.forEach(p=>{
     const w=winners[p.nome];
-    if(w.supplier){res[w.supplier].items.push({cod:p.cod,nome:p.nome,qty:p.qty,unit:p.unit,up:w.unitPrice,sub:w.unitPrice*p.qty});res[w.supplier].total+=w.unitPrice*p.qty;}
+    if(w.supplier){res[w.supplier].items.push({cod:p.cod,nome:p.nome,qty:p.qty,unit:p.unit,up:w.unitPrice,sub:w.unitPrice*p.qty,obs:w.obs||''});res[w.supplier].total+=w.unitPrice*p.qty;}
   });
   resultadoAtual={winners,res};
   const fmt=v=>v==null?'—':'R$ '+v.toFixed(2).replace('.',',');
@@ -2916,8 +2917,9 @@ async function calcular() {
     for (const p of products) {
       const w = winners[p.nome];
       if (!w.supplier || !w.unitPrice) continue;
-      const media = await buscarMediaHistorica(p.nome, w.supplier);
-      if (media === null) continue;
+      const hist = await buscarMediaHistorica(p.nome, w.supplier);
+      if (!hist) continue;
+      const { media } = hist;
       const variacao = ((w.unitPrice - media) / media) * 100;
       const itemInRes = res[w.supplier]?.items.find(it => it.nome === p.nome);
       if (itemInRes) {
@@ -3274,11 +3276,33 @@ async function verDetalhe(cId, nome) {
     const itensCotados = itensArr.filter(item => forsArr.some(f => res[f.nome]?.items.some(it => it.nome === item.nome))).length;
 
     // 5. Renderizar métricas
+    // Calcular alertas de variação de preço para o histórico
+    const alertasDetalhe = [];
+    const alertaPctDetalhe = 15; // padrão 15% no histórico
+    for (const f of forsArr) {
+      for (const it of (res[f.nome]?.items || [])) {
+        // Salvar cotacaoAtualId temporariamente para excluir esta cotação do histórico
+        const savedId = cotacaoAtualId;
+        cotacaoAtualId = cId;
+        const hist = await buscarMediaHistorica(it.nome, f.nome);
+        cotacaoAtualId = savedId;
+        if (!hist) continue;
+        const variacao = ((it.up - hist.media) / hist.media) * 100;
+        it.media = hist.media;
+        it.variacao = variacao;
+        it.alerta = variacao > alertaPctDetalhe ? 'alto' : variacao > alertaPctDetalhe * 0.6 ? 'medio' : null;
+        if (variacao > alertaPctDetalhe * 0.6) {
+          alertasDetalhe.push({ produto: it.nome, fornecedor: f.nome, precoAtual: it.up, media: hist.media, variacao });
+        }
+      }
+    }
+
     document.getElementById('detalhe-metrics').innerHTML = `
       <div class="metric"><div class="metric-label">Total geral</div><div class="metric-value green">${fmt(totalGeral)}</div></div>
       <div class="metric"><div class="metric-label">Fornecedores</div><div class="metric-value">${forsArr.length}</div></div>
       <div class="metric"><div class="metric-label">Itens</div><div class="metric-value">${itensArr.length}</div></div>
       <div class="metric"><div class="metric-label">Com preço</div><div class="metric-value">${itensCotados}</div></div>
+      ${alertasDetalhe.length > 0 ? `<div class="metric" style="border-color:#f0b8b8;background:#fff5f5;"><div class="metric-label" style="color:#cc1f1f;">⚠ Alertas de preço</div><div class="metric-value" style="color:#cc1f1f;">${alertasDetalhe.length}</div></div>` : ''}
     `;
 
     // Botão recalcular direto do histórico — remover anterior se existir
@@ -3346,9 +3370,11 @@ async function verDetalhe(cId, nome) {
             ${it.obs ? `<div style="font-size:11px;color:#795c00;background:#fff9db;border-radius:4px;padding:2px 7px;margin-top:3px;display:inline-block;">📝 ${it.obs}</div>` : ''}
           </div>
           <div class="item-prices" style="flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+            ${it.media ? `<span style="font-size:11px;color:var(--text3)">Média: ${fmt(it.media)}</span>` : ''}
             <span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span>
             <span style="font-weight:700">${fmt(it.sub)}</span>
             <span class="badge badge-green">Mais barato</span>
+            ${it.alerta === 'alto' ? `<span style="background:#fff5f5;color:#cc1f1f;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #f0b8b8;">⚠ +${it.variacao.toFixed(1)}%</span>` : it.alerta === 'medio' ? `<span style="background:#fff9db;color:#795c00;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #ffd43b;">⚡ +${it.variacao.toFixed(1)}%</span>` : ''}
             ${outrosForn.length > 0 ? `<span id="transf-wrap-${it.itemId}" style="display:inline-flex;align-items:center;gap:4px;">
               <button id="btn-transf-${it.itemId}" onclick="toggleTransferir('${it.itemId}')"
                 style="height:22px;padding:0 8px;border-radius:4px;border:1px solid #74c0fc;background:#e7f5ff;color:#1971c2;font-size:10px;font-weight:700;cursor:pointer;">⇄ Transferir</button>
@@ -3383,6 +3409,41 @@ async function verDetalhe(cId, nome) {
 
     if (!cards) {
       cards = '<div class="empty">Nenhum preço foi registrado nesta cotação.</div>';
+    }
+
+    // Seção de alertas no verDetalhe
+    if (alertasDetalhe.length > 0) {
+      cards += `<div style="margin-top:1.25rem;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cc1f1f" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span style="font-size:15px;font-weight:700;color:#cc1f1f;">${alertasDetalhe.length} alerta(s) de variação de preço</span>
+          <span style="font-size:12px;color:var(--text2);">Comparado às cotações anteriores — limite: 15%</span>
+        </div>
+        <div style="background:#fff5f5;border:1px solid #ffa8a8;border-radius:var(--radius-lg);overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="background:#ffe3e3;">
+              <th style="padding:8px 14px;text-align:left;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Produto</th>
+              <th style="padding:8px 14px;text-align:left;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Fornecedor</th>
+              <th style="padding:8px 14px;text-align:right;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Média anterior</th>
+              <th style="padding:8px 14px;text-align:right;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Preço atual</th>
+              <th style="padding:8px 14px;text-align:center;font-size:12px;color:#a32d2d;font-weight:700;border-bottom:1px solid #ffa8a8;">Variação</th>
+            </tr></thead>
+            <tbody>
+              ${alertasDetalhe.sort((a,b)=>b.variacao-a.variacao).map((a,i)=>{
+                const isAlto = a.variacao > alertaPctDetalhe;
+                const bg = isAlto?'#fff8f8':'#fffdf0', color = isAlto?'#cc1f1f':'#795c00', icon = isAlto?'⚠':'⚡';
+                return `<tr style="background:${bg};${i<alertasDetalhe.length-1?'border-bottom:1px solid #ffd3d3;':''}">
+                  <td style="padding:9px 14px;font-weight:500;">${a.produto.length>40?a.produto.slice(0,40)+'…':a.produto}</td>
+                  <td style="padding:9px 14px;color:#6c757d;">${a.fornecedor}</td>
+                  <td style="padding:9px 14px;text-align:right;color:#6c757d;">R$ ${a.media.toFixed(2).replace('.',',')}</td>
+                  <td style="padding:9px 14px;text-align:right;font-weight:700;color:${color};">R$ ${a.precoAtual.toFixed(2).replace('.',',')}</td>
+                  <td style="padding:9px 14px;text-align:center;"><span style="background:${isAlto?'#ffe3e3':'#fff9db'};color:${color};font-size:11px;font-weight:700;padding:2px 10px;border-radius:20px;">${icon} +${a.variacao.toFixed(1)}%</span></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
     }
 
     // Itens sem cotação
