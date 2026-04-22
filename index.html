@@ -2017,15 +2017,28 @@ async function carregarListaAcessos() {
 
       // Botão excluir
       document.getElementById('btn-del-acesso-' + p.id).addEventListener('click', async function() {
-        if (!confirm('Excluir o acesso de "' + nome + '"? Ele não conseguirá mais fazer login.')) return;
+        if (!confirm('Excluir o acesso de "' + nome + '"? O login dele sera desativado permanentemente.')) return;
         this.innerHTML = '<span class="spinner"></span>';
         this.disabled = true;
         try {
-          const { error } = await sb.from('perfis').delete().eq('id', p.id);
-          if (error) throw error;
+          // Chamar Edge Function para deletar do Auth + perfil
+          const { data: { session } } = await sb.auth.getSession();
+          const resp = await fetch(
+            'https://anktzkvawcnahtqpdtfw.supabase.co/functions/v1/delete-user',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + session.access_token,
+              },
+              body: JSON.stringify({ userId: p.id })
+            }
+          );
+          const result = await resp.json();
+          if (!resp.ok) throw new Error(result.error || 'Erro ao excluir');
+
           document.getElementById('acesso-row-' + p.id).remove();
-          toast('Acesso de ' + nome + ' excluído.');
-          // Se não sobrou nenhum, mostrar empty
+          toast('Acesso de ' + nome + ' excluido. Login desativado.');
           const lista2 = document.getElementById('vinc-lista');
           if (lista2 && !lista2.children.length) {
             lista2.innerHTML = '<div class="empty">Nenhum acesso criado ainda.</div>';
