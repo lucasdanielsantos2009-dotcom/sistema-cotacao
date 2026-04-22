@@ -550,9 +550,10 @@
         <div id="historico-lista"><div class="empty">Carregando...</div></div>
       </div>
       <div id="detalhe-cotacao" style="display:none;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;flex-wrap:wrap;">
           <button class="btn btn-sm" onclick="fecharDetalhe()">← Voltar</button>
-          <div style="font-size:18px;font-weight:700;" id="detalhe-titulo"></div>
+          <div style="font-size:18px;font-weight:700;flex:1;" id="detalhe-titulo"></div>
+          <div id="detalhe-status-badge"></div>
         </div>
         <div class="metrics" id="detalhe-metrics"></div>
         <div id="detalhe-cards"></div>
@@ -1388,6 +1389,9 @@ async function carregarCotacoesFornecedor(user) {
       const preenchidos = precos?.length || 0;
       const pct = totalItens > 0 ? Math.round((preenchidos/totalItens)*100) : 0;
 
+      // Status encerrada
+      const cotEncerrada = cot.status === 'encerrada';
+
       // Prazo
       let prazoHtml = '';
       if (cot.prazo_limite) {
@@ -1456,7 +1460,17 @@ async function carregarCotacoesFornecedor(user) {
             '</div>' +
           '</div>'
         ) +
-        (jaEnviou ?
+        (cotEncerrada ?
+          '<div style="background:#fff5f5;border:1px solid #f0b8b8;border-radius:8px;padding:10px 14px;font-size:13px;color:#a32d2d;margin-bottom:8px;">' +
+            '🔒 Esta cotação foi encerrada pelo comprador. Não é possível fazer alterações.' +
+          '</div>' +
+          '<button class="btn" id="btn-cot-' + cot.id + '" style="width:100%;justify-content:center;opacity:.5;cursor:not-allowed;" disabled>' +
+            '🔒 Cotação encerrada' +
+          '</button>' :
+          jaEnviou ?
+          '<div style="background:#ebfbee;border:1px solid #8ce99a;border-radius:8px;padding:10px 14px;font-size:13px;color:#1a5e2a;margin-bottom:12px;">' +
+            '✓ Você já enviou seus preços para esta cotação. Não é possível fazer alterações após o envio.' +
+          '</div>' +
           '<button class="btn" id="btn-cot-' + cot.id + '" style="width:100%;justify-content:center;opacity:.5;cursor:not-allowed;" disabled>' +
             '🔒 Preços enviados — somente visualização' +
           '</button>' :
@@ -1469,7 +1483,7 @@ async function carregarCotacoesFornecedor(user) {
 
       // Usar querySelector no próprio card (evita null se DOM ainda não renderizou)
       const cotId = cot.id, fornId = vinculo.id, cotNome = cot.nome;
-      const bloqueado = jaEnviou;
+      const bloqueado = jaEnviou || cotEncerrada;
       const btnCot = card.querySelector('#btn-cot-' + cotId);
       if (btnCot && !bloqueado) {
         btnCot.addEventListener('click', () => {
@@ -3133,6 +3147,7 @@ async function carregarHistorico() {
       '</div>' +
       '<div style="display:flex;gap:6px;align-items:center;flex-shrink:0;flex-wrap:wrap;">' +
         '<span id="notif-cot-' + c.id + '" style="display:none;background:#ebfbee;color:#2f9e44;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;"></span>' +
+        (c.status === 'encerrada' ? '<span style="background:#fff5f5;color:#cc1f1f;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid #f0b8b8;">🔒 Encerrada</span> ' : '') +
         (c.filial_id ? '<span style="background:var(--brand-light);color:var(--brand);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">' + (filiais.find(f=>f.id===c.filial_id)?.nome||'Filial') + '</span>' : '') +
         '<button class="btn btn-sm" id="btn-hist-' + c.id + '">Ver resultado</button>' +
         '<button class="btn btn-sm" id="btn-dup-' + c.id + '" title="Duplicar cotação">⧉ Duplicar</button>' +
@@ -3214,6 +3229,19 @@ async function verDetalhe(cId, nome) {
   document.getElementById('detalhe-cards').innerHTML = '';
 
   try {
+    // 0. Buscar status da cotação
+    const { data: cotData } = await sb.from('cotacoes').select('status').eq('id', cId).single();
+    const cotStatus = cotData?.status || 'aberta';
+    const isEncerrada = cotStatus === 'encerrada';
+
+    // Mostrar badge de status no header
+    const statusBadge = document.getElementById('detalhe-status-badge');
+    if (statusBadge) {
+      statusBadge.innerHTML = isEncerrada
+        ? '<span style="background:#fff5f5;color:#cc1f1f;font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;border:1px solid #f0b8b8;">🔒 Encerrada</span>'
+        : '<span style="background:#ebfbee;color:#2f9e44;font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;border:1px solid #8ce99a;">● Aberta</span>';
+    }
+
     // 1. Buscar itens da cotação
     const { data: itens, error: e1 } = await sb.from('itens').select('*').eq('cotacao_id', cId);
     if (e1) throw new Error('Erro ao buscar itens: ' + e1.message);
@@ -3345,7 +3373,68 @@ async function verDetalhe(cId, nome) {
       btnRecalc.innerHTML = 'Recalcular melhor oferta';
       btnRecalc.disabled = false;
     });
-    document.getElementById('detalhe-cards').before(btnRecalc);
+    // Botão encerrar cotação
+    const btnEncerrarExist = document.getElementById('btn-encerrar-detalhe');
+    if (btnEncerrarExist) btnEncerrarExist.remove();
+
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
+
+    if (!isEncerrada) {
+      btnRow.appendChild(btnRecalc);
+
+      const btnEncerrar = document.createElement('button');
+      btnEncerrar.id = 'btn-encerrar-detalhe';
+      btnEncerrar.className = 'btn';
+      btnEncerrar.style.cssText = 'background:#fff5f5;color:#cc1f1f;border-color:#f0b8b8;font-weight:600;';
+      btnEncerrar.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Encerrar cotação';
+      btnEncerrar.addEventListener('click', async function() {
+        if (!confirm('Encerrar a cotação "' + nome + '"? Os fornecedores nao poderao mais alterar os precos e verao esta cotacao como encerrada.')) return;
+        btnEncerrar.innerHTML = '<span class="spinner"></span> Encerrando...';
+        btnEncerrar.disabled = true;
+        try {
+          const { error } = await sb.from('cotacoes').update({ status: 'encerrada' }).eq('id', cId);
+          if (error) throw error;
+          toast('Cotação encerrada com sucesso!');
+          await verDetalhe(cId, nome);
+        } catch(err) {
+          toast('Erro: ' + err.message);
+          btnEncerrar.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Encerrar cotação';
+          btnEncerrar.disabled = false;
+        }
+      });
+      btnRow.appendChild(btnEncerrar);
+    } else {
+      // Cotação encerrada — mostrar botão de reabrir
+      const btnReabrir = document.createElement('button');
+      btnReabrir.id = 'btn-encerrar-detalhe';
+      btnReabrir.className = 'btn';
+      btnReabrir.style.cssText = 'background:#ebfbee;color:#2f9e44;border-color:#8ce99a;font-weight:600;';
+      btnReabrir.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Reabrir cotação';
+      btnReabrir.addEventListener('click', async function() {
+        if (!confirm('Reabrir a cotacao? Os fornecedores poderao editar os precos novamente.')) return;
+        btnReabrir.innerHTML = '<span class="spinner"></span>';
+        btnReabrir.disabled = true;
+        try {
+          const { error } = await sb.from('cotacoes').update({ status: 'aberta' }).eq('id', cId);
+          if (error) throw error;
+          toast('Cotação reaberta!');
+          await verDetalhe(cId, nome);
+        } catch(err) {
+          toast('Erro: ' + err.message);
+          btnReabrir.disabled = false;
+        }
+      });
+      btnRow.appendChild(btnRecalc);
+      btnRow.appendChild(btnReabrir);
+      // Show encerrada notice
+      const notice = document.createElement('div');
+      notice.style.cssText = 'background:#fff5f5;border:1px solid #f0b8b8;border-left:4px solid #cc1f1f;border-radius:8px;padding:12px 16px;margin-bottom:1rem;font-size:13px;color:#a32d2d;';
+      notice.innerHTML = '<strong>🔒 Cotação encerrada.</strong> Os fornecedores não podem mais editar os preços. Para permitir edições, clique em "Reabrir cotação".';
+      document.getElementById('detalhe-cards').before(notice);
+    }
+
+    document.getElementById('detalhe-cards').before(btnRow);
 
     // 6. Renderizar cards por fornecedor
     let cards = '';
