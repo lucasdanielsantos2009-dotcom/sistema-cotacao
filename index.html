@@ -2195,6 +2195,244 @@ async function salvarFilial(editId = null) {
 }
 
 // ─── Duplicar cotação ─────────────────────────────────────────────────────────
+async function abrirEdicaoCotacao(cotacaoId, nomeCotacao) {
+  // Esconder lista, mostrar tela de edição
+  document.getElementById('historico-card').style.display = 'none';
+  const det = document.getElementById('detalhe-cotacao');
+  det.style.display = 'block';
+  document.getElementById('detalhe-titulo').textContent = 'Editando: ' + nomeCotacao;
+  document.getElementById('detalhe-metrics').innerHTML = '<div class="empty"><span class="spinner"></span> Carregando...</div>';
+  document.getElementById('detalhe-cards').innerHTML = '';
+  document.getElementById('detalhe-status-badge').innerHTML = '';
+
+  // Remover botão recalcular se existir
+  document.getElementById('btn-recalcular-detalhe')?.remove();
+
+  try {
+    // Buscar dados atuais da cotação
+    const { data: itensDB }    = await sb.from('itens').select('*').eq('cotacao_id', cotacaoId);
+    const { data: forsDB }     = await sb.from('fornecedores').select('*').eq('cotacao_id', cotacaoId);
+    const { data: cotDB }      = await sb.from('cotacoes').select('*').eq('id', cotacaoId).single();
+    await carregarFornecedoresCadastro();
+
+    // Montar lista de fornecedores já vinculados
+    const fornVinculados = (forsDB||[]).map(f => f.nome);
+
+    const editDiv = document.createElement('div');
+    editDiv.id = 'edicao-cotacao-wrap';
+
+    editDiv.innerHTML =
+      // Seção fornecedores
+      '<div class="card" style="margin-bottom:1rem;">' +
+        '<div class="card-title">Fornecedores na cotação</div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Adicione ou remova fornecedores. Fornecedores adicionados receberão acesso para preencher os preços.</div>' +
+        '<div id="edit-forn-lista" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;"></div>' +
+        '<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;">Adicionar fornecedor cadastrado:</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<select id="edit-add-forn-sel" style="height:36px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--surface);color:var(--text);padding:0 10px;font-size:13px;flex:1;min-width:200px;">' +
+            '<option value="">Selecione para adicionar...</option>' +
+          '</select>' +
+          '<button class="btn btn-primary" id="btn-edit-add-forn">+ Adicionar</button>' +
+        '</div>' +
+        '<div id="edit-forn-msg" style="margin-top:8px;"></div>' +
+      '</div>' +
+      // Seção itens
+      '<div class="card" style="margin-bottom:1rem;">' +
+        '<div class="card-title">Itens da cotação (' + (itensDB?.length||0) + ' itens)</div>' +
+        '<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Adicione novos itens ou remova os existentes.</div>' +
+        '<div id="edit-itens-lista" style="margin-bottom:12px;"></div>' +
+        '<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px;">Adicionar item:</div>' +
+        '<div class="form-row">' +
+          '<input type="text" id="edit-inp-cod" placeholder="Código" style="width:90px"/>' +
+          '<input type="text" id="edit-inp-nome" placeholder="Nome do produto" style="flex:1;min-width:160px;"/>' +
+          '<input type="number" id="edit-inp-qty" placeholder="Qtd" min="1" style="width:70px"/>' +
+          '<input type="text" id="edit-inp-unit" placeholder="Un" style="width:60px"/>' +
+          '<button class="btn btn-primary" id="btn-edit-add-item">+ Adicionar</button>' +
+        '</div>' +
+        '<div id="edit-item-msg" style="margin-top:8px;"></div>' +
+      '</div>' +
+      // Botão voltar
+      '<button class="btn" id="btn-edit-voltar">← Voltar ao histórico</button>';
+
+    document.getElementById('detalhe-metrics').innerHTML = '';
+    document.getElementById('detalhe-cards').appendChild(editDiv);
+
+    // Renderizar fornecedores vinculados
+    function renderFornVinculados() {
+      const lista = document.getElementById('edit-forn-lista');
+      if (!lista) return;
+      if (!fornVinculados.length) {
+        lista.innerHTML = '<span style="font-size:13px;color:var(--text2);">Nenhum fornecedor adicionado ainda.</span>';
+        return;
+      }
+      // Build tags using createElement to avoid quote issues
+      lista.innerHTML = '';
+      fornVinculados.forEach(function(nome, i) {
+        const span = document.createElement('span');
+        span.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:13px;';
+        span.textContent = nome + ' ';
+        const btn = document.createElement('button');
+        btn.textContent = '×';
+        btn.style.cssText = 'width:18px;height:18px;border-radius:50%;border:none;background:#ffa8a8;color:#cc1f1f;cursor:pointer;font-size:12px;line-height:1;padding:0;';
+        btn.addEventListener('click', (function(n) { return function() { removerFornecedorCotacao(cotacaoId, n); }; })(nome));
+        span.appendChild(btn);
+        lista.appendChild(span);
+      });
+    }
+
+    // Preencher select de fornecedores disponíveis
+    function atualizarSelectFornEdit() {
+      const sel = document.getElementById('edit-add-forn-sel');
+      if (!sel) return;
+      const disponiveis = fornecedoresCadastrados.filter(f => !fornVinculados.includes(f.nome));
+      sel.innerHTML = '<option value="">Selecione para adicionar...</option>' +
+        disponiveis.map(f => '<option value="' + f.nome.replace(/"/g,'&quot;') + '">' + f.nome + '</option>').join('');
+    }
+
+    // Renderizar itens
+    function renderItensEdit() {
+      const lista = document.getElementById('edit-itens-lista');
+      if (!lista) return;
+      if (!itensDB?.length) {
+        lista.innerHTML = '<div style="font-size:13px;color:var(--text2);">Nenhum item na cotação.</div>';
+        return;
+      }
+      lista.innerHTML = '<div class="tbl-wrap"><table><thead><tr>' +
+        '<th>Código</th><th>Produto</th><th>Qtd</th><th>Un</th><th style="width:40px"></th>' +
+        '</tr></thead><tbody>' +
+        itensDB.map(item =>
+          '<tr>' +
+            '<td style="color:var(--text2);font-size:12px">' + (item.codigo||'—') + '</td>' +
+            '<td>' + item.nome + '</td>' +
+            '<td>' + item.quantidade + '</td>' +
+            '<td style="color:var(--text2)">' + (item.unidade||'un') + '</td>' +
+            '<td><button data-item-id="' + item.id + '" class="btn-remove-item-edit" ' +
+              'style="width:26px;height:26px;border-radius:6px;border:1px solid #ffa8a8;background:#fff5f5;color:#cc1f1f;cursor:pointer;font-size:14px;line-height:1;padding:0;">×</button></td>' +
+          '</tr>'
+        ).join('') +
+        '</tbody></table></div>';
+    }
+
+    renderFornVinculados();
+    atualizarSelectFornEdit();
+    renderItensEdit();
+
+    // Event delegation for remove item buttons (handles dynamic content)
+    document.getElementById('edit-itens-lista').addEventListener('click', function(e) {
+      const btn = e.target.closest('.btn-remove-item-edit');
+      if (!btn) return;
+      removerItemEdicao(btn.getAttribute('data-item-id'), itensDB);
+    });
+
+    // Botão adicionar fornecedor
+    document.getElementById('btn-edit-add-forn').addEventListener('click', async function() {
+      const sel = document.getElementById('edit-add-forn-sel');
+      const nome = sel?.value;
+      if (!nome) { toast('Selecione um fornecedor.'); return; }
+
+      this.innerHTML = '<span class="spinner"></span>';
+      this.disabled = true;
+      try {
+        const { data: forn, error } = await sb.from('fornecedores')
+          .insert({ cotacao_id: cotacaoId, nome })
+          .select().single();
+        if (error) throw error;
+
+        // Vincular user_id se existir
+        await vincularFornecedoresNaCotacao(cotacaoId);
+
+        fornVinculados.push(nome);
+        renderFornVinculados();
+        atualizarSelectFornEdit();
+        document.getElementById('edit-forn-msg').innerHTML = '<div class="alert alert-ok">✓ ' + nome + ' adicionado! Ele já pode acessar e preencher os preços.</div>';
+        setTimeout(() => { const m = document.getElementById('edit-forn-msg'); if(m) m.innerHTML=''; }, 3000);
+      } catch(err) {
+        toast('Erro: ' + err.message);
+      }
+      this.innerHTML = '+ Adicionar';
+      this.disabled = false;
+    });
+
+    // Botão adicionar item
+    document.getElementById('btn-edit-add-item').addEventListener('click', async function() {
+      const cod  = document.getElementById('edit-inp-cod').value.trim();
+      const nome = document.getElementById('edit-inp-nome').value.trim();
+      const qty  = parseFloat(document.getElementById('edit-inp-qty').value) || 1;
+      const unit = document.getElementById('edit-inp-unit').value.trim() || 'un';
+      if (!nome) { toast('Informe o nome do produto.'); return; }
+
+      this.innerHTML = '<span class="spinner"></span>';
+      this.disabled = true;
+      try {
+        const { data: item, error } = await sb.from('itens')
+          .insert({ cotacao_id: cotacaoId, codigo: cod||null, nome, quantidade: qty, unidade: unit })
+          .select().single();
+        if (error) throw error;
+
+        itensDB.push(item);
+        renderItensEdit();
+        ['edit-inp-cod','edit-inp-nome','edit-inp-qty','edit-inp-unit'].forEach(id => {
+          const el = document.getElementById(id); if(el) el.value='';
+        });
+        document.getElementById('edit-item-msg').innerHTML = '<div class="alert alert-ok">✓ Item "' + nome + '" adicionado!</div>';
+        setTimeout(() => { const m = document.getElementById('edit-item-msg'); if(m) m.innerHTML=''; }, 3000);
+      } catch(err) {
+        toast('Erro: ' + err.message);
+      }
+      this.innerHTML = '+ Adicionar';
+      this.disabled = false;
+    });
+
+    // Botão voltar
+    document.getElementById('btn-edit-voltar').addEventListener('click', async function() {
+      det.style.display = 'none';
+      document.getElementById('historico-card').style.display = 'block';
+      await carregarHistorico();
+    });
+
+  } catch(err) {
+    document.getElementById('detalhe-metrics').innerHTML = '<div class="alert alert-err">Erro: ' + err.message + '</div>';
+  }
+}
+
+async function removerFornecedorCotacao(cotacaoId, nomeForn) {
+  if (!confirm('Remover "' + nomeForn + '" desta cotação? Os preços que ele preencheu também serão removidos.')) return;
+  try {
+    // Buscar fornecedor
+    const { data: forn } = await sb.from('fornecedores').select('id').eq('cotacao_id', cotacaoId).eq('nome', nomeForn).single();
+    if (!forn) throw new Error('Fornecedor não encontrado.');
+    // Remover preços
+    await sb.from('precos').delete().eq('fornecedor_id', forn.id);
+    // Remover fornecedor
+    await sb.from('fornecedores').delete().eq('id', forn.id);
+    toast(nomeForn + ' removido da cotação.');
+    // Re-render
+    await abrirEdicaoCotacao(cotacaoId, document.getElementById('detalhe-titulo').textContent.replace('Editando: ',''));
+  } catch(err) {
+    toast('Erro: ' + err.message);
+  }
+}
+
+async function removerItemEdicao(itemId, itensArr) {
+  if (!confirm('Remover este item da cotacao? Os precos dele tambem serao removidos.')) return;
+  try {
+    await sb.from('precos').delete().eq('item_id', itemId);
+    await sb.from('itens').delete().eq('id', itemId);
+    // Remove from local array
+    if (itensArr) {
+      const idx = itensArr.findIndex(i => i.id === itemId);
+      if (idx !== -1) itensArr.splice(idx, 1);
+    }
+    // Remove row from table
+    const btn = document.querySelector('[data-item-id="' + itemId + '"]');
+    if (btn) btn.closest('tr')?.remove();
+    toast('Item removido.');
+  } catch(err) {
+    toast('Erro: ' + err.message);
+  }
+}
+
+
 async function duplicarCotacao(cotacaoId, nomeOriginal) {
   if (!confirm('Duplicar a cotação "' + nomeOriginal + '"? Uma nova cotação será criada com os mesmos itens e fornecedores, com preços em branco.')) return;
   try {
@@ -3163,6 +3401,7 @@ async function carregarHistorico() {
         (c.status === 'encerrada' ? '<span style="background:#fff5f5;color:#cc1f1f;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid #f0b8b8;">🔒 Encerrada</span> ' : '') +
         (c.filial_id ? '<span style="background:var(--brand-light);color:var(--brand);font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;">' + (filiais.find(f=>f.id===c.filial_id)?.nome||'Filial') + '</span>' : '') +
         '<button class="btn btn-sm" id="btn-hist-' + c.id + '">Ver resultado</button>' +
+        '<button class="btn btn-sm" id="btn-edit-cot-' + c.id + '" title="Editar cotação" style="background:#e7f5ff;color:#1971c2;border-color:#74c0fc;">✎ Editar</button>' +
         '<button class="btn btn-sm" id="btn-dup-' + c.id + '" title="Duplicar cotação">⧉ Duplicar</button>' +
         '<button class="btn btn-sm btn-danger" id="btn-del-cot-' + c.id + '" title="Excluir cotação">' +
           '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>' +
@@ -3185,6 +3424,11 @@ async function carregarHistorico() {
     // Botão ver resultado
     document.getElementById('btn-hist-' + cId).addEventListener('click', function() {
       verDetalhe(cId, cNome);
+    });
+
+    // Botão editar cotação
+    document.getElementById('btn-edit-cot-' + cId).addEventListener('click', function() {
+      abrirEdicaoCotacao(cId, cNome);
     });
 
     // Botão duplicar
