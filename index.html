@@ -1357,6 +1357,10 @@ async function carregarCotacoesFornecedor(user) {
   const wrap = document.getElementById('sup-content');
   wrap.innerHTML = '<div class="empty"><span class="spinner"></span> Carregando cotações...</div>';
   try {
+    if (!user || !user.id) {
+      wrap.innerHTML = '<div class="alert alert-err">Sessão expirada. <a href="" onclick="location.reload()">Clique aqui para recarregar.</a></div>';
+      return;
+    }
     const { data: meusVinculos, error: e1 } = await sb.from('fornecedores').select('id,nome,cotacao_id').eq('user_id', user.id);
     if (e1) throw e1;
     if (!meusVinculos || !meusVinculos.length) {
@@ -1543,8 +1547,17 @@ async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao, tota
     '<div id="sup-form-wrap"><div class="empty"><span class="spinner"></span> Carregando itens...</div></div>';
 
   document.getElementById('btn-voltar-sup').addEventListener('click', async () => {
-    const { data: { user } } = await sb.auth.getUser();
-    carregarCotacoesFornecedor(user);
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) {
+        carregarCotacoesFornecedor(user);
+      } else {
+        // Sessão expirou — recarregar página
+        location.reload();
+      }
+    } catch(e) {
+      location.reload();
+    }
   });
 
   try {
