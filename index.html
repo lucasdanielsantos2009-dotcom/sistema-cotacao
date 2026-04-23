@@ -554,6 +554,10 @@
           <button class="btn btn-sm" onclick="fecharDetalhe()">← Voltar</button>
           <div style="font-size:18px;font-weight:700;flex:1;" id="detalhe-titulo"></div>
           <div id="detalhe-status-badge"></div>
+          <button class="btn" id="btn-pdf-detalhe" style="display:none;background:#fff5f5;color:#cc1f1f;border-color:#f0b8b8;font-weight:600;" onclick="triggerPdfDetalhe()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Exportar PDF
+          </button>
         </div>
         <div class="metrics" id="detalhe-metrics"></div>
         <div id="detalhe-cards"></div>
@@ -3787,6 +3791,15 @@ async function carregarHistorico() {
   });
 }
 
+// Store verDetalhe data for PDF export
+let _detalheData = null;
+
+function triggerPdfDetalhe() {
+  if (!_detalheData) { toast('Carregue o resultado primeiro.'); return; }
+  const { cId, nome, forsArr, itensArr, precsArr, res, totalGeral } = _detalheData;
+  exportarPDFDetalhe(cId, nome, forsArr, itensArr, precsArr, res, totalGeral);
+}
+
 async function verDetalhe(cId, nome) {
   marcarNotificacoesLidas(cId);
   // Esconde lista, mostra detalhe
@@ -4159,6 +4172,11 @@ async function verDetalhe(cId, nome) {
 
     document.getElementById('detalhe-cards').innerHTML = cards;
 
+    // Store data for PDF export and show button
+    _detalheData = { cId, nome, forsArr, itensArr, precsArr, res, totalGeral };
+    const btnPdfStatic = document.getElementById('btn-pdf-detalhe');
+    if (btnPdfStatic) btnPdfStatic.style.display = 'inline-flex';
+
   } catch (err) {
     document.getElementById('detalhe-metrics').innerHTML = `<div class="alert alert-err">Erro ao carregar: ${err.message}</div>`;
     console.error('verDetalhe error:', err);
@@ -4168,6 +4186,9 @@ async function verDetalhe(cId, nome) {
 function fecharDetalhe() {
   document.getElementById('detalhe-cotacao').style.display='none';
   document.getElementById('historico-card').style.display='block';
+  const btnPdfStatic = document.getElementById('btn-pdf-detalhe');
+  if (btnPdfStatic) btnPdfStatic.style.display = 'none';
+  _detalheData = null;
 }
 
 function fmt(n){return 'R$ '+parseFloat(n||0).toFixed(2).replace('.',',');}
