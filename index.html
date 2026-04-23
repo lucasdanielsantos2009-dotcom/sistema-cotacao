@@ -4070,8 +4070,7 @@ async function verDetalhe(cId, nome) {
           </div>
           <div class="item-prices" style="flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
             ${it.media ? `<span style="font-size:11px;color:var(--text3)" title="Média das cotações anteriores">Média ant.: ${fmt(it.media)}</span>` : ''}
-            <span style="color:var(--text2)">${fmt(it.up)}/un × ${it.qty}</span>
-            <span style="font-weight:700">${fmt(it.sub)}</span>
+            <span><strong>${fmt(it.up)}/un</strong> <span style="color:var(--text2)">× ${it.qty}  ${fmt(it.sub)}</span></span>
             <span class="badge badge-green">Mais barato</span>
             ${it.alerta === 'alto' ? `<span style="background:#fff5f5;color:#cc1f1f;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #f0b8b8;">⚠ +${it.variacao.toFixed(1)}%</span>` : it.alerta === 'medio' ? `<span style="background:#fff9db;color:#795c00;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;border:1px solid #ffd43b;">⚡ +${it.variacao.toFixed(1)}%</span>` : ''}
             ${outrosForn.length > 0 ? `<span id="transf-wrap-${it.itemId}" style="display:inline-flex;align-items:center;gap:4px;">
