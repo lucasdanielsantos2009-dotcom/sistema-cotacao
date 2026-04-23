@@ -663,6 +663,148 @@ function exportarExcel() {
 }
 
 // ─── Exportar PDF ─────────────────────────────────────────────────────────────
+function exportarPDFDetalhe(cotacaoId, nomeCotacao, forsArr, itensArr, precsArr, res, totalGeral) {
+  if (typeof window.jspdf === 'undefined') { toast('Aguarde o carregamento do PDF...'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const dataHoje = new Date().toLocaleDateString('pt-BR');
+  const fmt = v => v == null ? '—' : 'R$ ' + v.toFixed(2).replace('.',',');
+
+  // ── Cabeçalho ────────────────────────────────────────────────────────────
+  doc.setFillColor(204, 31, 31);
+  doc.rect(0, 0, 297, 18, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('REDE DROGAVAZ — RESULTADO DA COTAÇÃO', 14, 7);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text(nomeCotacao, 14, 13);
+  doc.text('Data: ' + dataHoje, 240, 7);
+  doc.text('Total: R$ ' + totalGeral.toFixed(2).replace('.',','), 220, 13);
+  doc.setTextColor(0, 0, 0);
+
+  // ── Métricas ─────────────────────────────────────────────────────────────
+  const itensCotados = itensArr.filter(item => forsArr.some(f => res[f.nome]?.items.some(it => it.nome === item.nome))).length;
+  doc.setFontSize(9);
+  doc.setFillColor(241, 243, 245);
+  [14, 88, 162, 236].forEach((x, i) => doc.rect(x, 22, 70, 14, 'F'));
+  doc.setTextColor(108, 117, 125);
+  doc.text('Total geral', 17, 27);
+  doc.text('Fornecedores', 91, 27);
+  doc.text('Itens cotados', 165, 27);
+  doc.text('Itens sem cotação', 239, 27);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(47, 158, 68);
+  doc.text('R$ ' + totalGeral.toFixed(2).replace('.',','), 17, 33);
+  doc.setTextColor(0,0,0);
+  doc.text(String(forsArr.length), 91, 33);
+  doc.text(itensCotados + ' de ' + itensArr.length, 165, 33);
+  doc.setTextColor(201, 42, 42);
+  doc.text(String(itensArr.length - itensCotados), 239, 33);
+  doc.setTextColor(0,0,0);
+
+  // ── Tabela de resultado por fornecedor ────────────────────────────────────
+  let startY = 40;
+  forsArr.forEach(f => {
+    const items = res[f.nome]?.items || [];
+    if (!items.length) return;
+
+    const total = res[f.nome]?.total || 0;
+
+    // Header do fornecedor
+    doc.setFillColor(26, 26, 26);
+    doc.rect(14, startY, 269, 8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(f.nome.toUpperCase(), 16, startY + 5.5);
+    doc.text('Total: R$ ' + total.toFixed(2).replace('.',','), 250, startY + 5.5);
+    doc.setTextColor(0,0,0);
+    startY += 8;
+
+    // Tabela de itens
+    doc.autoTable({
+      head: [['Código', 'Produto', 'Qtd', 'Un', 'Preço/un', 'Subtotal', 'Observação']],
+      body: items.map(it => {
+        const obs = it.obs || '';
+        return [
+          it.cod || '—',
+          it.nome.length > 50 ? it.nome.slice(0,50) + '.' : it.nome,
+          String(it.qty),
+          it.unit || 'un',
+          fmt(it.up),
+          fmt(it.sub),
+          obs.length > 30 ? obs.slice(0,30) + '.' : obs
+        ];
+      }),
+      startY,
+      margin: { left: 14, right: 14 },
+      theme: 'grid',
+      headStyles: { fillColor: [204,31,31], textColor: 255, fontSize: 7, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 7, cellPadding: 2 },
+      columnStyles: {
+        0: { cellWidth: 18 },
+        1: { cellWidth: 80 },
+        2: { cellWidth: 12, halign: 'center' },
+        3: { cellWidth: 12, halign: 'center' },
+        4: { cellWidth: 25, halign: 'right' },
+        5: { cellWidth: 25, halign: 'right', fontStyle: 'bold' },
+        6: { cellWidth: 60 },
+      },
+      alternateRowStyles: { fillColor: [248, 249, 250] },
+      didDrawPage: function(data) {
+        // Rodapé em cada página
+        doc.setFontSize(7);
+        doc.setTextColor(150,150,150);
+        doc.text('Rede Drogavaz — Sistema de Cotação', 14, 205);
+        doc.text('Página ' + doc.internal.getCurrentPageInfo().pageNumber, 270, 205);
+      }
+    });
+    startY = doc.lastAutoTable.finalY + 6;
+
+    // Nova página se necessário
+    if (startY > 185) { doc.addPage(); startY = 15; }
+  });
+
+  // ── Itens sem cotação ─────────────────────────────────────────────────────
+  const itensSemPreco = itensArr.filter(item =>
+    !forsArr.some(f => res[f.nome]?.items.some(it => it.nome === item.nome))
+  );
+  if (itensSemPreco.length > 0) {
+    if (startY > 160) { doc.addPage(); startY = 15; }
+    doc.setFillColor(255, 245, 245);
+    doc.setDrawColor(255, 168, 168);
+    doc.rect(14, startY, 269, 7, 'FD');
+    doc.setTextColor(201, 42, 42);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ITENS SEM COTAÇÃO (' + itensSemPreco.length + ')', 16, startY + 5);
+    doc.setTextColor(0,0,0);
+    startY += 7;
+
+    doc.autoTable({
+      head: [['Código', 'Produto', 'Qtd', 'Un']],
+      body: itensSemPreco.map(item => [
+        item.codigo || '—',
+        item.nome.length > 70 ? item.nome.slice(0,70) + '.' : item.nome,
+        String(item.quantidade || 1),
+        item.unidade || 'un'
+      ]),
+      startY,
+      margin: { left: 14, right: 14 },
+      theme: 'grid',
+      headStyles: { fillColor: [201,42,42], textColor: 255, fontSize: 7, fontStyle: 'bold' },
+      bodyStyles: { fontSize: 7, cellPadding: 2 },
+      alternateRowStyles: { fillColor: [255, 248, 248] },
+    });
+  }
+
+  doc.save('cotacao-' + nomeCotacao.replace(/[^a-zA-Z0-9]/g,'_') + '.pdf');
+  toast('PDF exportado com sucesso!');
+}
+
 function exportarPDF() {
   if (!resultadoAtual) { toast('Calcule a cotação primeiro.'); return; }
   if (typeof window.jspdf === 'undefined') { toast('Aguarde o carregamento do PDF...'); return; }
@@ -3806,6 +3948,14 @@ async function verDetalhe(cId, nome) {
 
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
+
+    // Botão exportar PDF do histórico
+    const btnPdfDetalhe = document.createElement('button');
+    btnPdfDetalhe.className = 'btn';
+    btnPdfDetalhe.style.cssText = 'background:#fff5f5;color:#cc1f1f;border-color:#f0b8b8;font-weight:600;';
+    btnPdfDetalhe.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Exportar PDF';
+    btnPdfDetalhe.addEventListener('click', () => exportarPDFDetalhe(cId, nome, forsArr, itensArr, precsArr, res, totalGeral));
+    btnRow.appendChild(btnPdfDetalhe);
 
     if (!isEncerrada) {
       btnRow.appendChild(btnRecalc);
