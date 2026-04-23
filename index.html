@@ -554,10 +554,7 @@
           <button class="btn btn-sm" onclick="fecharDetalhe()">← Voltar</button>
           <div style="font-size:18px;font-weight:700;flex:1;" id="detalhe-titulo"></div>
           <div id="detalhe-status-badge"></div>
-          <button class="btn" id="btn-pdf-detalhe" style="display:none;background:#fff5f5;color:#cc1f1f;border-color:#f0b8b8;font-weight:600;" onclick="triggerPdfDetalhe()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            Exportar PDF
-          </button>
+
         </div>
         <div class="metrics" id="detalhe-metrics"></div>
         <div id="detalhe-cards"></div>
@@ -3814,9 +3811,7 @@ async function verDetalhe(cId, nome) {
   document.getElementById('btn-recalcular-detalhe')?.remove();
   document.getElementById('btn-encerrar-detalhe')?.remove();
 
-  // Mostrar botão PDF imediatamente (será ocultado se houver erro)
-  const btnPdfEarly = document.getElementById('btn-pdf-detalhe');
-  if (btnPdfEarly) btnPdfEarly.style.display = 'inline-flex';
+
 
   try {
     // 0. Buscar status da cotação
@@ -3970,16 +3965,16 @@ async function verDetalhe(cId, nome) {
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
 
-    // Botão exportar PDF do histórico
-    const btnPdfDetalhe = document.createElement('button');
-    btnPdfDetalhe.className = 'btn';
-    btnPdfDetalhe.style.cssText = 'background:#fff5f5;color:#cc1f1f;border-color:#f0b8b8;font-weight:600;';
-    btnPdfDetalhe.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Exportar PDF';
-    btnPdfDetalhe.addEventListener('click', () => exportarPDFDetalhe(cId, nome, forsArr, itensArr, precsArr, res, totalGeral));
-    btnRow.appendChild(btnPdfDetalhe);
-
     if (!isEncerrada) {
       btnRow.appendChild(btnRecalc);
+
+      // Botão PDF
+      const btnPdfDetalhe2 = document.createElement('button');
+      btnPdfDetalhe2.className = 'btn';
+      btnPdfDetalhe2.style.cssText = 'background:#fff5f5;color:#cc1f1f;border-color:#f0b8b8;font-weight:600;';
+      btnPdfDetalhe2.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Exportar PDF';
+      btnPdfDetalhe2.addEventListener('click', () => triggerPdfDetalhe());
+      btnRow.appendChild(btnPdfDetalhe2);
 
       const btnEncerrar = document.createElement('button');
       btnEncerrar.id = 'btn-encerrar-detalhe';
@@ -4024,6 +4019,13 @@ async function verDetalhe(cId, nome) {
         }
       });
       btnRow.appendChild(btnRecalc);
+      // Botão PDF (encerrada)
+      const btnPdfEnc = document.createElement('button');
+      btnPdfEnc.className = 'btn';
+      btnPdfEnc.style.cssText = 'background:#fff5f5;color:#cc1f1f;border-color:#f0b8b8;font-weight:600;';
+      btnPdfEnc.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Exportar PDF';
+      btnPdfEnc.addEventListener('click', () => triggerPdfDetalhe());
+      btnRow.appendChild(btnPdfEnc);
       btnRow.appendChild(btnReabrir);
       // Show encerrada notice
       // Remover aviso anterior se existir
@@ -4183,10 +4185,8 @@ async function verDetalhe(cId, nome) {
 
     document.getElementById('detalhe-cards').innerHTML = cards;
 
-    // Store data for PDF export and show button
+    // Store data for PDF export
     _detalheData = { cId, nome, forsArr, itensArr, precsArr, res, totalGeral };
-    const btnPdfStatic = document.getElementById('btn-pdf-detalhe');
-    if (btnPdfStatic) btnPdfStatic.style.display = 'inline-flex';
 
   } catch (err) {
     document.getElementById('detalhe-metrics').innerHTML = `<div class="alert alert-err">Erro ao carregar: ${err.message}</div>`;
@@ -4197,8 +4197,6 @@ async function verDetalhe(cId, nome) {
 function fecharDetalhe() {
   document.getElementById('detalhe-cotacao').style.display='none';
   document.getElementById('historico-card').style.display='block';
-  const btnPdfStatic = document.getElementById('btn-pdf-detalhe');
-  if (btnPdfStatic) btnPdfStatic.style.display = 'none';
   _detalheData = null;
 }
 
