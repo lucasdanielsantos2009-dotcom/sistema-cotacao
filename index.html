@@ -1497,6 +1497,8 @@ async function carregarCotacoesFornecedor(user) {
 }
 
 async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao, totalItens) {
+  window.nomeCotacaoAtual = nomeCotacao;
+  window.totalItensAtual  = totalItens;
   const wrap = document.getElementById('sup-content');
 
   // Verificar se já enviou (bloqueado)
@@ -1705,8 +1707,8 @@ function renderDesktop(itens, precosMap, fornecedorId, cotacaoId) {
       '</div>' +
     '</div>';
 
-  document.getElementById('btn-salvar-top').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens));
-  document.getElementById('btn-salvar-bot').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens));
+  document.getElementById('btn-salvar-top').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, null));
+  document.getElementById('btn-salvar-bot').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, null));
 
   const tbody = document.getElementById('sup-itens-body');
   itens.forEach(item => {
@@ -1818,6 +1820,9 @@ function renderMobile(itens, precosMap, fornecedorId, cotacaoId) {
 }
 
 async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapMobile) {
+  // Store for reopen button
+  window.nomeCotacaoAtual = window.nomeCotacaoAtual || '';
+  window.totalItensAtual  = itens ? itens.length : 0;
   const msg = document.getElementById('sup-save-msg');
   if (msg) msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Salvando...</div>';
 
@@ -1944,10 +1949,38 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
     // Atualizar progresso com contagem real do banco
     atualizarProgresso(qtdReais, totalItensReal);
 
-    // Bloquear botões de salvar
+    // Bloquear botões de salvar e adicionar botão reabrir
     ['btn-salvar-top','btn-salvar-bot','btn-mob-salvar'].forEach(id => {
       const b = document.getElementById(id);
-      if (b) { b.disabled = true; b.style.background = '#adb5bd'; b.textContent = '🔒 Preços enviados'; }
+      if (!b) return;
+      b.disabled = true;
+      b.style.background = '#adb5bd';
+      b.style.borderColor = '#adb5bd';
+      b.textContent = '🔒 Preços enviados';
+
+      // Adicionar botão Reabrir ao lado
+      const btnReopen = document.createElement('button');
+      btnReopen.textContent = '✎ Corrigir preços';
+      btnReopen.style.cssText = 'height:36px;padding:0 14px;border-radius:var(--radius);border:1px solid #1971c2;background:#e7f5ff;color:#1971c2;font-size:13px;font-weight:700;cursor:pointer;margin-left:8px;';
+      btnReopen.addEventListener('click', async function() {
+        if (!confirm('Reabrir para corrigir os preços?')) return;
+        btnReopen.textContent = 'Abrindo...';
+        btnReopen.disabled = true;
+        try {
+          await sb.from('notificacoes')
+            .delete()
+            .eq('cotacao_id', cotacaoId)
+            .eq('fornecedor_id', fornecedorId)
+            .eq('tipo', 'concluido');
+          // Recarregar tela
+          await abrirCotacaoFornecedor(cotacaoId, fornecedorId, window.nomeCotacaoAtual || '', window.totalItensAtual || 0);
+        } catch(err) {
+          toast('Erro: ' + err.message);
+          btnReopen.textContent = '✎ Corrigir preços';
+          btnReopen.disabled = false;
+        }
+      });
+      b.parentNode?.insertBefore(btnReopen, b.nextSibling);
     });
     // Desabilitar todos os inputs
     document.querySelectorAll('#sup-itens-body input, #sup-form-wrap input').forEach(inp => {
