@@ -1809,15 +1809,38 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens) {
       return;
     }
 
-    const toUpdate = toSave.filter(s => s.preco_id);
-    const toInsert = toSave.filter(s => !s.preco_id);
+    // Usar upsert baseado em item_id + fornecedor_id para evitar duplicatas
+    // Buscar preços existentes deste fornecedor para todos os itens
+    const itemIds = toSave.map(s => s.item_id);
+    const { data: existentes } = await sb.from('precos')
+      .select('id, item_id')
+      .eq('fornecedor_id', fornecedorId)
+      .in('item_id', itemIds);
 
+    const existMap = {};
+    (existentes||[]).forEach(p => { existMap[p.item_id] = p.id; });
+
+    const toUpdate = toSave.filter(s => existMap[s.item_id]);
+    const toInsert = toSave.filter(s => !existMap[s.item_id]);
+
+    // Atualizar existentes
     for (const u of toUpdate) {
-      const { error } = await sb.from('precos').update({ preco_unitario: u.preco, observacao: u.obs }).eq('id', u.preco_id);
+      const { error } = await sb.from('precos')
+        .update({ preco_unitario: u.preco, observacao: u.obs })
+        .eq('id', existMap[u.item_id]);
       if (error) throw error;
     }
+
+    // Inserir novos
     if (toInsert.length) {
-      const { error } = await sb.from('precos').insert(toInsert.map(u => ({ item_id: u.item_id, fornecedor_id: fornecedorId, preco_unitario: u.preco, observacao: u.obs })));
+      const { error } = await sb.from('precos').insert(
+        toInsert.map(u => ({
+          item_id: u.item_id,
+          fornecedor_id: fornecedorId,
+          preco_unitario: u.preco,
+          observacao: u.obs
+        }))
+      );
       if (error) throw error;
     }
 
