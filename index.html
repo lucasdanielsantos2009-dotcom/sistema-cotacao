@@ -1825,6 +1825,9 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
       });
     }
 
+    console.log('[DEBUG SAVE] toSave:', toSave.length, 'itens');
+    console.log('[DEBUG SAVE] toDelete:', toDelete.length, 'itens', toDelete);
+
     if (!toSave.length && !toDelete.length) {
       if (msg) msg.innerHTML = '<div class="alert alert-warn">Preencha ao menos um preço antes de salvar.</div>';
       return;
@@ -1845,6 +1848,7 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
       });
     }
 
+    console.log('[DEBUG SAVE] existMap:', Object.keys(existMap).length, 'itens no banco');
     // Primeiro: limpar TODAS as duplicatas — manter só 1 registro por item
     for (const [itemId, ids] of Object.entries(existMap)) {
       if (ids.length > 1) {
@@ -1862,6 +1866,7 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
       await sb.from('precos').delete().in('id', idsParaDeletar);
     }
 
+    console.log('[DEBUG SAVE] toDeleteComExistente:', toDeleteComExistente.length);
     // Atualizar preços existentes
     for (const u of toSave.filter(s => existMap[s.item_id]?.length)) {
       await sb.from('precos')
