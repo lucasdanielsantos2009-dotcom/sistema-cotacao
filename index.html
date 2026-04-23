@@ -1825,36 +1825,36 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
     const toSave   = []; // itens com preço > 0
     const toDelete = []; // itens zerados/em branco que precisam ser removidos do banco
 
-    // MOBILE: usa precosMap passado como parâmetro
-    if (precosMapMobile && itens) {
+    if (itens) {
       itens.forEach(item => {
-        const p = precosMapMobile[item.id];
-        if (p && parseFloat(p.preco_unitario) > 0) {
-          toSave.push({ item_id: item.id, preco: parseFloat(p.preco_unitario), obs: p.observacao||'' });
-        } else {
-          toDelete.push(item.id); // sem preço no mobile = remover
-        }
-      });
-    }
-
-    // DESKTOP: lê dos inputs visíveis na tela
-    if (!precosMapMobile && itens) {
-      itens.forEach(item => {
-        const inp    = document.getElementById('sp-'   + item.id);
-        const obsInp = document.getElementById('sobs-' + item.id);
-        if (inp) {
-          const v = parseFloat(String(inp.value).replace(',','.'));
-          if (!isNaN(v) && v > 0) {
-            toSave.push({ item_id: item.id, preco: v, obs: obsInp ? obsInp.value.trim() : '' });
+        // MOBILE: usa precosMap em memória
+        if (precosMapMobile) {
+          const p = precosMapMobile[item.id];
+          if (p && parseFloat(p.preco_unitario) > 0) {
+            toSave.push({ item_id: item.id, preco: parseFloat(p.preco_unitario), obs: p.observacao||'' });
           } else {
-            toDelete.push(item.id); // campo vazio ou zero = remover do banco
+            toDelete.push(item.id);
+          }
+        } else {
+          // DESKTOP: lê dos inputs na tela
+          const inp    = document.getElementById('sp-'   + item.id);
+          const obsInp = document.getElementById('sobs-' + item.id);
+          if (inp) {
+            const raw = String(inp.value).replace(',','.').trim();
+            const v   = parseFloat(raw);
+            if (!isNaN(v) && v > 0) {
+              toSave.push({ item_id: item.id, preco: v, obs: obsInp ? obsInp.value.trim() : '' });
+            } else {
+              // Campo vazio, zero ou apagado = marcar para remover do banco
+              toDelete.push(item.id);
+            }
           }
         }
       });
     }
 
-    console.log('[DEBUG SAVE] toSave:', toSave.length, 'itens');
-    console.log('[DEBUG SAVE] toDelete:', toDelete.length, 'itens', toDelete);
+    console.log('[DEBUG SAVE] toSave:', toSave.length, 'itens com preço');
+    console.log('[DEBUG SAVE] toDelete:', toDelete.length, 'itens zerados/vazios', toDelete);
 
     if (!toSave.length && !toDelete.length) {
       if (msg) msg.innerHTML = '<div class="alert alert-warn">Preencha ao menos um preço antes de salvar.</div>';
@@ -1889,9 +1889,16 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
 
     // Deletar preços zerados/removidos
     const toDeleteComExistente = toDelete.filter(id => existMap[id]?.length);
+    console.log('[DEBUG SAVE] Deletando', toDeleteComExistente.length, 'preços zerados do banco');
     if (toDeleteComExistente.length) {
       const idsParaDeletar = toDeleteComExistente.flatMap(id => existMap[id]);
-      await sb.from('precos').delete().in('id', idsParaDeletar);
+      console.log('[DEBUG SAVE] IDs a deletar:', idsParaDeletar);
+      const { error: delError, data: delData } = await sb.from('precos').delete().in('id', idsParaDeletar).select();
+      if (delError) {
+        console.error('[DEBUG SAVE] ERRO ao deletar:', delError);
+      } else {
+        console.log('[DEBUG SAVE] Deletados com sucesso:', delData?.length, 'registros');
+      }
     }
 
     console.log('[DEBUG SAVE] toDeleteComExistente:', toDeleteComExistente.length);
