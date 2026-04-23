@@ -1720,6 +1720,23 @@ function renderDesktop(itens, precosMap, fornecedorId, cotacaoId) {
       '</div>' +
     '</div>';
 
+  // Garantir que botões estão ativos (pode ter sido desabilitado em sessão anterior)
+  ['btn-salvar-top','btn-salvar-bot'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) {
+      b.disabled = false;
+      b.style.background = '';
+      b.style.borderColor = '';
+      b.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg> Salvar todos os preços';
+    }
+  });
+  // Garantir que inputs estão ativos
+  document.querySelectorAll('#sup-itens-body input').forEach(inp => {
+    inp.disabled = false;
+    inp.style.background = '';
+    inp.style.color = '';
+  });
+
   document.getElementById('btn-salvar-top').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, null));
   document.getElementById('btn-salvar-bot').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, null));
 
