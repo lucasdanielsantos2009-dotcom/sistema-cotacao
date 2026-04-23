@@ -1385,7 +1385,7 @@ async function carregarCotacoesFornecedor(user) {
       // Buscar progresso
       const { data: itens } = await sb.from('itens').select('id').eq('cotacao_id', cot.id);
       const totalItens = itens?.length || 0;
-      const { data: precos } = await sb.from('precos').select('id').eq('fornecedor_id', vinculo.id);
+      const { data: precos } = await sb.from('precos').select('id,preco_unitario').eq('fornecedor_id', vinculo.id).gt('preco_unitario', 0);
       const preenchidos = precos?.length || 0;
       const pct = totalItens > 0 ? Math.round((preenchidos/totalItens)*100) : 0;
 
@@ -1555,7 +1555,7 @@ async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao, tota
     const precosMap = {};
     (precosExist||[]).forEach(p => { precosMap[p.item_id] = p; });
 
-    const preenchidos = Object.keys(precosMap).length;
+    const preenchidos = Object.values(precosMap).filter(p => p && p.preco_unitario > 0).length;
     atualizarProgresso(preenchidos, itens.length);
 
     const isMobile = window.innerWidth < 600;
@@ -1786,6 +1786,7 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
     }
 
     // DESKTOP: lê dos inputs visíveis na tela
+    const toDelete = []; // itens zerados que devem ter o preço removido
     if (!toSave.length && itens) {
       itens.forEach(item => {
         const inp = document.getElementById('sp-' + item.id);
@@ -1798,6 +1799,9 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
               preco: v,
               obs: obsInp ? obsInp.value.trim() : ''
             });
+          } else if (inp.value === '0' || inp.value === '') {
+            // Preço zerado — marcar para deletar se existir no banco
+            toDelete.push(item.id);
           }
         }
       });
@@ -1845,10 +1849,32 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
 
     // Verificar se completou 100% e enviar notificação
     const { data: todosItens } = await sb.from('itens').select('id').eq('cotacao_id', cotacaoId);
-    const { data: todosPrecos } = await sb.from('precos').select('id').eq('fornecedor_id', fornecedorId);
-    if (todosItens && todosPrecos && todosPrecos.length >= todosItens.length) {
+    // Buscar preços únicos por item_id com valor > 0
+    const { data: todosPrecos } = await sb.from('precos')
+      .select('item_id')
+      .eq('fornecedor_id', fornecedorId)
+      .gt('preco_unitario', 0);
+    // Contar itens únicos com preço (evita duplicatas)
+    const itensComPreco = new Set((todosPrecos||[]).map(p => p.item_id)).size;
+    if (todosItens && itensComPreco >= todosItens.length) {
       await sb.from('notificacoes').insert({ cotacao_id: cotacaoId, fornecedor_id: fornecedorId, tipo: 'concluido' }).then(() => {});
     }
+
+    // Deletar preços zerados (quando fornecedor apaga um valor)
+    if (toDelete.length) {
+      await sb.from('precos')
+        .delete()
+        .eq('fornecedor_id', fornecedorId)
+        .in('item_id', toDelete);
+    }
+
+    // Buscar contagem real de preços > 0 deste fornecedor nesta cotação
+    const { data: precosReais } = await sb.from('precos')
+      .select('item_id')
+      .eq('fornecedor_id', fornecedorId)
+      .gt('preco_unitario', 0);
+    const qtdReais = new Set((precosReais||[]).map(p => p.item_id)).size;
+    const totalItensReal = itens ? itens.length : qtdReais;
 
     if (msg) msg.innerHTML =
       '<div class="alert alert-ok">' +
@@ -1856,8 +1882,8 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
         '<strong>Seus preços foram bloqueados para edição.</strong> O comprador já pode visualizá-los.' +
       '</div>';
 
-    // Atualizar progresso
-    atualizarProgresso(toSave.length, itens ? itens.length : toSave.length);
+    // Atualizar progresso com contagem real do banco
+    atualizarProgresso(qtdReais, totalItensReal);
 
     // Bloquear botões de salvar
     ['btn-salvar-top','btn-salvar-bot','btn-mob-salvar'].forEach(id => {
