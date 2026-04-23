@@ -3810,6 +3810,10 @@ async function verDetalhe(cId, nome) {
   document.getElementById('detalhe-metrics').innerHTML = '<div class="empty"><span class="spinner"></span> Carregando...</div>';
   document.getElementById('detalhe-cards').innerHTML = '';
 
+  // Mostrar botão PDF imediatamente (será ocultado se houver erro)
+  const btnPdfEarly = document.getElementById('btn-pdf-detalhe');
+  if (btnPdfEarly) btnPdfEarly.style.display = 'inline-flex';
+
   try {
     // 0. Buscar status da cotação
     const { data: cotData } = await sb.from('cotacoes').select('status').eq('id', cId).single();
