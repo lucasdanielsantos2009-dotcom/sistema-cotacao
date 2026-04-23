@@ -1696,7 +1696,7 @@ function renderMobile(itens, precosMap, fornecedorId, cotacaoId) {
           '<div style="font-size:13px;color:var(--text2);margin-bottom:1.5rem">Clique em salvar para confirmar os preços ao comprador.</div>' +
           '<button class="btn btn-primary" id="btn-mob-salvar" style="width:100%;justify-content:center;height:48px;font-size:15px;">Salvar todos os preços</button>' +
         '</div>';
-      document.getElementById('btn-mob-salvar').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens));
+      document.getElementById('btn-mob-salvar').addEventListener('click', () => salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMap));
       return;
     }
 
@@ -1764,17 +1764,30 @@ function renderMobile(itens, precosMap, fornecedorId, cotacaoId) {
   renderItem(cur);
 }
 
-async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens) {
+async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapMobile) {
   const msg = document.getElementById('sup-save-msg');
   if (msg) msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Salvando...</div>';
 
   try {
-    // Coletar preços — suporte desktop (inputs) e mobile (precosMap em memória)
     const toSave = [];
 
-    if (itens) {
+    // MOBILE: usa precosMap passado como parâmetro (coletado durante navegação item a item)
+    if (precosMapMobile && itens) {
       itens.forEach(item => {
-        // Desktop: lê dos inputs na tela
+        const p = precosMapMobile[item.id];
+        if (p && p.preco_unitario > 0) {
+          toSave.push({
+            item_id: item.id,
+            preco: parseFloat(p.preco_unitario),
+            obs: p.observacao || ''
+          });
+        }
+      });
+    }
+
+    // DESKTOP: lê dos inputs visíveis na tela
+    if (!toSave.length && itens) {
+      itens.forEach(item => {
         const inp = document.getElementById('sp-' + item.id);
         const obsInp = document.getElementById('sobs-' + item.id);
         if (inp) {
@@ -1782,7 +1795,6 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens) {
           if (!isNaN(v) && v > 0) {
             toSave.push({
               item_id: item.id,
-              preco_id: inp.getAttribute('data-preco-id') || null,
               preco: v,
               obs: obsInp ? obsInp.value.trim() : ''
             });
@@ -1791,20 +1803,7 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens) {
       });
     }
 
-    // Mobile: lê do preço visível na tela (mob-price)
-    const mobPrice = document.getElementById('mob-price');
-    const mobObs   = document.getElementById('mob-obs');
-    const mobBtn   = document.getElementById('btn-mob-salvar');
-
-    if (mobBtn && itens) {
-      // Salvar preços coletados na navegação (armazenados no precosMap via renderMobile)
-      // O botão mob-salvar chama esta função após todos itens serem preenchidos
-      // Neste caso toSave está vazio pois os valores estão no precosMap
-      // Vamos buscar do banco e upsert
-    }
-
     if (!toSave.length) {
-      // Tentar buscar dos inputs móveis se existirem
       if (msg) msg.innerHTML = '<div class="alert alert-warn">Preencha ao menos um preço antes de salvar.</div>';
       return;
     }
