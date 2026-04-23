@@ -1553,7 +1553,12 @@ async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao, tota
     const itemIds = itens.map(i => i.id);
     const { data: precosExist } = await sb.from('precos').select('*').eq('fornecedor_id', fornecedorId).in('item_id', itemIds);
     const precosMap = {};
-    (precosExist||[]).forEach(p => { precosMap[p.item_id] = p; });
+    // Só carrega preços > 0 — preços zerados/deletados ficam como campo vazio
+    // Em caso de duplicatas, usa o registro mais recente (maior id)
+    (precosExist||[])
+      .filter(p => parseFloat(p.preco_unitario) > 0)
+      .sort((a, b) => a.id > b.id ? 1 : -1)  // ordena por id crescente
+      .forEach(p => { precosMap[p.item_id] = p; }); // último sobrescreve
 
     const preenchidos = Object.values(precosMap).filter(p => p && p.preco_unitario > 0).length;
     atualizarProgresso(preenchidos, itens.length);
@@ -1660,7 +1665,7 @@ function renderDesktop(itens, precosMap, fornecedorId, cotacaoId) {
   const tbody = document.getElementById('sup-itens-body');
   itens.forEach(item => {
     const p = precosMap[item.id];
-    const val = p ? parseFloat(p.preco_unitario).toFixed(2) : '';
+    const val = (p && parseFloat(p.preco_unitario) > 0) ? parseFloat(p.preco_unitario).toFixed(2) : '';
     const obs = p ? (p.observacao||'') : '';
     const qty = parseFloat(item.quantidade)||1;
     const sub = val ? 'R$ '+(val*qty).toFixed(2).replace('.',',') : '—';
@@ -1703,6 +1708,8 @@ function renderMobile(itens, precosMap, fornecedorId, cotacaoId) {
     const item = itens[idx];
     const p = precosMap[item.id];
     const qty = parseFloat(item.quantidade)||1;
+    // Só mostrar valor se > 0
+    const pVal = (p && parseFloat(p.preco_unitario) > 0) ? p : null;
 
     fw.innerHTML =
       '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">' +
@@ -1711,13 +1718,13 @@ function renderMobile(itens, precosMap, fornecedorId, cotacaoId) {
           '<div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;">' + item.nome + '</div>' +
           '<div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Qtd: ' + qty + ' ' + (item.unidade||'un') + (item.codigo?' · Cód: '+item.codigo:'') + '</div>' +
           '<label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">Seu preço (R$/un)</label>' +
-          '<input type="number" id="mob-price" inputmode="decimal" placeholder="0,00" value="' + (p&&p.preco_unitario?parseFloat(p.preco_unitario).toFixed(2):'') + '" ' +
+          '<input type="number" id="mob-price" inputmode="decimal" placeholder="0,00" value="' + (pVal?parseFloat(pVal.preco_unitario).toFixed(2):'') + '" ' +
             'style="width:100%;height:56px;font-size:22px;font-weight:700;border-radius:var(--radius);border:2px solid var(--border2);padding:0 16px;background:var(--surface);color:var(--text);text-align:right;"/>' +
           '<div id="mob-sub" style="text-align:right;font-size:13px;color:var(--green);font-weight:700;margin-top:6px;min-height:20px;">' +
-            (p && p.preco_unitario ? 'R$ '+(p.preco_unitario*qty).toFixed(2).replace('.',',') : '') +
+            (pVal && pVal.preco_unitario ? 'R$ '+(pVal.preco_unitario*qty).toFixed(2).replace('.',',') : '') +
           '</div>' +
           '<label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin:12px 0 6px;">Observação (opcional)</label>' +
-          '<input type="text" id="mob-obs" placeholder="Ex: produto indisponível, prazo 5 dias..." value="' + (p?p.observacao||'':'') + '" ' +
+          '<input type="text" id="mob-obs" placeholder="Ex: produto indisponível, prazo 5 dias..." value="' + (pVal?pVal.observacao||'':'') + '" ' +
             'style="width:100%;height:40px;font-size:14px;border-radius:var(--radius);border:1px solid var(--border2);padding:0 12px;background:var(--surface);color:var(--text);"/>' +
         '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 2fr;border-top:1px solid var(--border);">' +
