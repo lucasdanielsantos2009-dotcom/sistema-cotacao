@@ -1552,13 +1552,31 @@ async function abrirCotacaoFornecedor(cotacaoId, fornecedorId, nomeCotacao, tota
 
     const itemIds = itens.map(i => i.id);
     const { data: precosExist } = await sb.from('precos').select('*').eq('fornecedor_id', fornecedorId).in('item_id', itemIds);
+    
+    // DEBUG — ver o que está no banco
+    console.log('[DEBUG] Total registros no banco para este fornecedor:', precosExist?.length);
+    const duplicatas = {};
+    (precosExist||[]).forEach(p => {
+      if (!duplicatas[p.item_id]) duplicatas[p.item_id] = [];
+      duplicatas[p.item_id].push({ id: p.id, preco: p.preco_unitario });
+    });
+    const itensDuplicados = Object.entries(duplicatas).filter(([,v]) => v.length > 1);
+    if (itensDuplicados.length) {
+      console.warn('[DEBUG] Itens com DUPLICATAS no banco:', itensDuplicados.length, itensDuplicados);
+    }
+    const itensZerados = (precosExist||[]).filter(p => parseFloat(p.preco_unitario) <= 0);
+    if (itensZerados.length) {
+      console.warn('[DEBUG] Preços ZERADOS ainda no banco:', itensZerados.length, itensZerados);
+    }
+
     const precosMap = {};
     // Só carrega preços > 0 — preços zerados/deletados ficam como campo vazio
-    // Em caso de duplicatas, usa o registro mais recente (maior id)
     (precosExist||[])
       .filter(p => parseFloat(p.preco_unitario) > 0)
-      .sort((a, b) => a.id > b.id ? 1 : -1)  // ordena por id crescente
-      .forEach(p => { precosMap[p.item_id] = p; }); // último sobrescreve
+      .sort((a, b) => a.id > b.id ? 1 : -1)
+      .forEach(p => { precosMap[p.item_id] = p; });
+    
+    console.log('[DEBUG] precosMap carregado com', Object.keys(precosMap).length, 'itens com preço > 0');
 
     const preenchidos = Object.values(precosMap).filter(p => p && p.preco_unitario > 0).length;
     atualizarProgresso(preenchidos, itens.length);
