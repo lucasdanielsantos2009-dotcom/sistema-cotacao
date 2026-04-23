@@ -1769,110 +1769,104 @@ async function salvarPrecosFornecedor(fornecedorId, cotacaoId, itens, precosMapM
   if (msg) msg.innerHTML = '<div class="alert alert-warn"><span class="spinner"></span> Salvando...</div>';
 
   try {
-    const toSave = [];
+    const toSave   = []; // itens com preço > 0
+    const toDelete = []; // itens zerados/em branco que precisam ser removidos do banco
 
-    // MOBILE: usa precosMap passado como parâmetro (coletado durante navegação item a item)
+    // MOBILE: usa precosMap passado como parâmetro
     if (precosMapMobile && itens) {
       itens.forEach(item => {
         const p = precosMapMobile[item.id];
-        if (p && p.preco_unitario > 0) {
-          toSave.push({
-            item_id: item.id,
-            preco: parseFloat(p.preco_unitario),
-            obs: p.observacao || ''
-          });
+        if (p && parseFloat(p.preco_unitario) > 0) {
+          toSave.push({ item_id: item.id, preco: parseFloat(p.preco_unitario), obs: p.observacao||'' });
+        } else {
+          toDelete.push(item.id); // sem preço no mobile = remover
         }
       });
     }
 
     // DESKTOP: lê dos inputs visíveis na tela
-    const toDelete = []; // itens zerados que devem ter o preço removido
-    if (!toSave.length && itens) {
+    if (!precosMapMobile && itens) {
       itens.forEach(item => {
-        const inp = document.getElementById('sp-' + item.id);
+        const inp    = document.getElementById('sp-'   + item.id);
         const obsInp = document.getElementById('sobs-' + item.id);
         if (inp) {
-          const v = parseFloat(inp.value);
+          const v = parseFloat(String(inp.value).replace(',','.'));
           if (!isNaN(v) && v > 0) {
-            toSave.push({
-              item_id: item.id,
-              preco: v,
-              obs: obsInp ? obsInp.value.trim() : ''
-            });
-          } else if (inp.value === '0' || inp.value === '') {
-            // Preço zerado — marcar para deletar se existir no banco
-            toDelete.push(item.id);
+            toSave.push({ item_id: item.id, preco: v, obs: obsInp ? obsInp.value.trim() : '' });
+          } else {
+            toDelete.push(item.id); // campo vazio ou zero = remover do banco
           }
         }
       });
     }
 
-    if (!toSave.length) {
+    if (!toSave.length && !toDelete.length) {
       if (msg) msg.innerHTML = '<div class="alert alert-warn">Preencha ao menos um preço antes de salvar.</div>';
       return;
     }
 
-    // Usar upsert baseado em item_id + fornecedor_id para evitar duplicatas
-    // Buscar preços existentes deste fornecedor para todos os itens
-    const itemIds = toSave.map(s => s.item_id);
-    const { data: existentes } = await sb.from('precos')
-      .select('id, item_id')
-      .eq('fornecedor_id', fornecedorId)
-      .in('item_id', itemIds);
-
-    const existMap = {};
-    (existentes||[]).forEach(p => { existMap[p.item_id] = p.id; });
-
-    const toUpdate = toSave.filter(s => existMap[s.item_id]);
-    const toInsert = toSave.filter(s => !existMap[s.item_id]);
-
-    // Atualizar existentes
-    for (const u of toUpdate) {
-      const { error } = await sb.from('precos')
-        .update({ preco_unitario: u.preco, observacao: u.obs })
-        .eq('id', existMap[u.item_id]);
-      if (error) throw error;
+    // Buscar TODOS os preços existentes deste fornecedor de uma vez
+    const todosItemIds = itens ? itens.map(i => i.id) : [];
+    let existMap = {}; // item_id -> [ids de precos existentes]
+    if (todosItemIds.length) {
+      const { data: existentes } = await sb.from('precos')
+        .select('id, item_id')
+        .eq('fornecedor_id', fornecedorId)
+        .in('item_id', todosItemIds);
+      // Agrupar por item_id (pode haver duplicatas)
+      (existentes||[]).forEach(p => {
+        if (!existMap[p.item_id]) existMap[p.item_id] = [];
+        existMap[p.item_id].push(p.id);
+      });
     }
 
-    // Inserir novos
+    // Primeiro: limpar TODAS as duplicatas — manter só 1 registro por item
+    for (const [itemId, ids] of Object.entries(existMap)) {
+      if (ids.length > 1) {
+        // Deletar todos exceto o primeiro
+        const idsParaDeletar = ids.slice(1);
+        await sb.from('precos').delete().in('id', idsParaDeletar);
+        existMap[itemId] = [ids[0]]; // manter só o primeiro
+      }
+    }
+
+    // Deletar preços zerados/removidos
+    const toDeleteComExistente = toDelete.filter(id => existMap[id]?.length);
+    if (toDeleteComExistente.length) {
+      const idsParaDeletar = toDeleteComExistente.flatMap(id => existMap[id]);
+      await sb.from('precos').delete().in('id', idsParaDeletar);
+    }
+
+    // Atualizar preços existentes
+    for (const u of toSave.filter(s => existMap[s.item_id]?.length)) {
+      await sb.from('precos')
+        .update({ preco_unitario: u.preco, observacao: u.obs })
+        .eq('id', existMap[u.item_id][0]);
+    }
+
+    // Inserir preços novos
+    const toInsert = toSave.filter(s => !existMap[s.item_id]?.length);
     if (toInsert.length) {
       const { error } = await sb.from('precos').insert(
-        toInsert.map(u => ({
-          item_id: u.item_id,
-          fornecedor_id: fornecedorId,
-          preco_unitario: u.preco,
-          observacao: u.obs
-        }))
+        toInsert.map(u => ({ item_id: u.item_id, fornecedor_id: fornecedorId, preco_unitario: u.preco, observacao: u.obs }))
       );
       if (error) throw error;
     }
 
     // Verificar se completou 100% e enviar notificação
     const { data: todosItens } = await sb.from('itens').select('id').eq('cotacao_id', cotacaoId);
-    // Buscar preços únicos por item_id com valor > 0
-    const { data: todosPrecos } = await sb.from('precos')
-      .select('item_id')
-      .eq('fornecedor_id', fornecedorId)
-      .gt('preco_unitario', 0);
-    // Contar itens únicos com preço (evita duplicatas)
-    const itensComPreco = new Set((todosPrecos||[]).map(p => p.item_id)).size;
+    const { data: precosValidos } = await sb.from('precos')
+      .select('item_id').eq('fornecedor_id', fornecedorId).gt('preco_unitario', 0);
+    const itensComPreco = new Set((precosValidos||[]).map(p => p.item_id)).size;
     if (todosItens && itensComPreco >= todosItens.length) {
-      await sb.from('notificacoes').insert({ cotacao_id: cotacaoId, fornecedor_id: fornecedorId, tipo: 'concluido' }).then(() => {});
+      await sb.from('notificacoes')
+        .insert({ cotacao_id: cotacaoId, fornecedor_id: fornecedorId, tipo: 'concluido' })
+        .then(() => {});
     }
 
-    // Deletar preços zerados (quando fornecedor apaga um valor)
-    if (toDelete.length) {
-      await sb.from('precos')
-        .delete()
-        .eq('fornecedor_id', fornecedorId)
-        .in('item_id', toDelete);
-    }
-
-    // Buscar contagem real de preços > 0 deste fornecedor nesta cotação
+    // Buscar contagem real final
     const { data: precosReais } = await sb.from('precos')
-      .select('item_id')
-      .eq('fornecedor_id', fornecedorId)
-      .gt('preco_unitario', 0);
+      .select('item_id').eq('fornecedor_id', fornecedorId).gt('preco_unitario', 0);
     const qtdReais = new Set((precosReais||[]).map(p => p.item_id)).size;
     const totalItensReal = itens ? itens.length : qtdReais;
 
