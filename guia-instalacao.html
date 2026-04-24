@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Como instalar o app — Rede Drogavaz</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;background:#f5f5f5;color:#1a1a1a;padding:20px;}
+  .container{max-width:480px;margin:0 auto;}
+  .header{text-align:center;padding:28px 20px 20px;background:#fff;border-radius:16px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .logo{width:72px;height:72px;border-radius:16px;margin:0 auto 14px;}
+  .header h1{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:6px;}
+  .header p{font-size:14px;color:#666;line-height:1.5;}
+  .tabs{display:flex;background:#fff;border-radius:12px;padding:4px;margin-bottom:16px;gap:4px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .tab{flex:1;padding:10px;text-align:center;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;border:none;background:transparent;color:#666;transition:.2s;}
+  .tab.active{background:#cc1f1f;color:#fff;}
+  .guide{display:none;}
+  .guide.active{display:block;}
+  .step-card{background:#fff;border-radius:16px;padding:18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);display:flex;gap:14px;align-items:flex-start;}
+  .step-num{width:32px;height:32px;border-radius:50%;background:#cc1f1f;color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .step-text h3{font-size:14px;font-weight:600;margin-bottom:4px;}
+  .step-text p{font-size:13px;color:#666;line-height:1.5;}
+  .phone-mock{margin:10px 0 4px;background:#1a1a1a;border-radius:20px;padding:8px;display:inline-block;}
+  .phone-screen{background:#fff;border-radius:14px;overflow:hidden;width:180px;}
+  .safari-bar{background:#f2f2f7;padding:6px 10px;border-bottom:0.5px solid #ddd;display:flex;align-items:center;gap:6px;}
+  .safari-url{background:#e5e5ea;border-radius:6px;padding:4px 8px;font-size:9px;color:#333;flex:1;text-align:center;}
+  .safari-share{width:18px;height:18px;display:flex;align-items:center;justify-content:center;}
+  .safari-content{padding:12px;text-align:center;}
+  .sheet{background:#f2f2f7;border-radius:12px 12px 0 0;padding:10px;}
+  .sheet-item{background:#fff;border-radius:10px;padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:500;}
+  .sheet-item.highlight{background:#cc1f1f;color:#fff;}
+  .sheet-icon{font-size:16px;}
+  .chrome-bar{background:#fff;padding:6px 10px;border-bottom:0.5px solid #ddd;display:flex;align-items:center;justify-content:space-between;}
+  .chrome-menu{display:flex;flex-direction:column;gap:2px;padding:4px;}
+  .chrome-dot{width:3px;height:3px;background:#666;border-radius:50%;}
+  .menu-sheet{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.15);margin:4px;}
+  .menu-item{padding:8px 12px;font-size:11px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #f0f0f0;}
+  .menu-item.highlight{color:#cc1f1f;font-weight:600;}
+  .tip{background:#fff9db;border:1px solid #ffd43b;border-radius:12px;padding:14px;margin-bottom:12px;font-size:13px;color:#795c00;line-height:1.5;}
+  .tip strong{display:block;margin-bottom:4px;}
+  .success{background:#ebfbee;border:1px solid #8ce99a;border-radius:12px;padding:14px;text-align:center;}
+  .success .icon{font-size:32px;margin-bottom:8px;}
+  .success h3{font-size:15px;font-weight:700;color:#1a5e2a;margin-bottom:4px;}
+  .success p{font-size:13px;color:#2f7a40;}
+  .link-box{background:#f0f0f0;border-radius:8px;padding:10px 14px;text-align:center;font-size:13px;font-weight:600;color:#cc1f1f;margin:10px 0;letter-spacing:.01em;}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <img class="logo" src="data:image/png;base64,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" alt="Drogavaz"/>
+    <h1>Como instalar o app</h1>
+    <p>Instale o portal de cotações na tela inicial do seu celular para acessar com um toque!</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('iphone')">📱 iPhone</button>
+    <button class="tab" onclick="showTab('android')">🤖 Android</button>
+  </div>
+
+  <!-- iPHONE -->
+  <div class="guide active" id="guide-iphone">
+
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <h3>Abra o Safari e acesse o link</h3>
+        <p>No iPhone, use o <strong>Safari</strong> (não Chrome). Digite o endereço do portal:</p>
+        <div class="link-box">sistema-cotacao.vercel.app</div>
+        <div class="phone-mock">
+          <div class="phone-screen">
+            <div class="safari-bar">
+              <div class="safari-url">sistema-cotacao.vercel.app</div>
+              <div class="safari-share">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+              </div>
+            </div>
+            <div class="safari-content">
+              <div style="font-size:10px;color:#666;margin-top:8px;">Portal carregado ✓</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <h3>Toque no botão de compartilhar</h3>
+        <p>Na barra inferior do Safari, toque no ícone de <strong>compartilhar</strong> (quadrado com seta para cima).</p>
+        <div style="margin-top:8px;text-align:left;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#007aff" stroke-width="1.5" style="background:#f2f2f7;border-radius:8px;padding:6px;"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+          <span style="font-size:12px;color:#666;margin-left:8px;vertical-align:middle;">← Este botão</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <h3>Toque em "Adicionar à Tela de Início"</h3>
+        <p>Role o menu para baixo e toque em <strong>"Adicionar à Tela de Início"</strong>.</p>
+        <div class="phone-mock" style="margin-top:8px;">
+          <div class="phone-screen">
+            <div class="sheet">
+              <div class="sheet-item"><span class="sheet-icon">📤</span> Copiar link</div>
+              <div class="sheet-item"><span class="sheet-icon">🔖</span> Adicionar aos Favoritos</div>
+              <div class="sheet-item highlight"><span class="sheet-icon">➕</span> Adicionar à Tela de Início</div>
+              <div class="sheet-item"><span class="sheet-icon">📋</span> Notas</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <div class="step-text">
+        <h3>Confirme e toque em "Adicionar"</h3>
+        <p>Aparecerá uma tela de confirmação. Toque em <strong>"Adicionar"</strong> no canto superior direito.</p>
+      </div>
+    </div>
+
+    <div class="success">
+      <div class="icon">🎉</div>
+      <h3>Pronto! App instalado!</h3>
+      <p>O ícone da Drogavaz aparecerá na tela inicial do seu iPhone. Agora é só tocar para abrir!</p>
+    </div>
+
+  </div>
+
+  <!-- ANDROID -->
+  <div class="guide" id="guide-android">
+
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <h3>Abra o Chrome e acesse o link</h3>
+        <p>No Android, use o <strong>Chrome</strong>. Digite o endereço do portal:</p>
+        <div class="link-box">sistema-cotacao.vercel.app</div>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <h3>Toque nos 3 pontinhos</h3>
+        <p>No canto superior direito do Chrome, toque no ícone de <strong>menu (⋮)</strong>.</p>
+        <div class="phone-mock" style="margin-top:8px;">
+          <div class="phone-screen">
+            <div class="chrome-bar">
+              <div style="background:#f0f0f0;border-radius:4px;padding:4px 8px;font-size:9px;flex:1;margin-right:8px;">sistema-cotacao.vercel.app</div>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <div style="width:3px;height:3px;background:#666;border-radius:50%;"></div>
+                <div style="width:3px;height:3px;background:#666;border-radius:50%;"></div>
+                <div style="width:3px;height:3px;background:#666;border-radius:50%;"></div>
+              </div>
+            </div>
+            <div class="menu-sheet">
+              <div class="menu-item"><span>🔖</span> Favoritos</div>
+              <div class="menu-item highlight"><span>📲</span> Adicionar à tela inicial</div>
+              <div class="menu-item"><span>🔗</span> Compartilhar</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <h3>Toque em "Adicionar à tela inicial"</h3>
+        <p>No menu que abrir, toque em <strong>"Adicionar à tela inicial"</strong>.</p>
+      </div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-num">4</div>
+      <div class="step-text">
+        <h3>Confirme tocando em "Adicionar"</h3>
+        <p>Uma janela de confirmação aparecerá. Toque em <strong>"Adicionar"</strong> para finalizar.</p>
+      </div>
+    </div>
+
+    <div class="success">
+      <div class="icon">🎉</div>
+      <h3>Pronto! App instalado!</h3>
+      <p>O ícone da Drogavaz aparecerá na tela inicial do seu Android. Agora é só tocar para abrir!</p>
+    </div>
+
+  </div>
+
+  <div class="tip" style="margin-top:16px;">
+    <strong>⚠️ Importante lembrar:</strong>
+    • Preencha os preços antes do prazo indicado na cotação<br>
+    • Produtos sem estoque deixe em branco ou use o campo de observação<br>
+    • Após enviar, os preços ficam bloqueados para alteração
+  </div>
+
+</div>
+<script>
+function showTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.guide').forEach(g => g.classList.remove('active'));
+  document.getElementById('guide-' + tab).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
