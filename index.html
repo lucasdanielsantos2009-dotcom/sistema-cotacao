@@ -670,7 +670,7 @@ function exportarExcel() {
 }
 
 // ─── Exportar PDF ─────────────────────────────────────────────────────────────
-function exportarPDFDetalhe(cotacaoId, nomeCotacao, forsArr, itensArr, precsArr, res, totalGeral) {
+function exportarPDFDetalhe(cotacaoId, nomeCotacao, forsArr, itensArr, precsArr, res, totalGeral, filialInfo) {
   if (typeof window.jspdf === 'undefined') { toast('Aguarde o carregamento do PDF...'); return; }
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -684,11 +684,18 @@ function exportarPDFDetalhe(cotacaoId, nomeCotacao, forsArr, itensArr, precsArr,
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
   doc.text('REDE DROGAVAZ — RESULTADO DA COTAÇÃO', 14, 7);
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.text(nomeCotacao, 14, 13);
   doc.text('Data: ' + dataHoje, 240, 7);
   doc.text('Total: R$ ' + totalGeral.toFixed(2).replace('.',','), 220, 13);
+  // Filial info no cabeçalho
+  if (filialInfo) {
+    let filialTxt = filialInfo.nome;
+    if (filialInfo.cidade) filialTxt += ' — ' + filialInfo.cidade;
+    if (filialInfo.cnpj)   filialTxt += ' · CNPJ: ' + filialInfo.cnpj;
+    doc.text('Filial: ' + filialTxt, 14, 17);
+  }
   doc.setTextColor(0, 0, 0);
 
   // ── Métricas ─────────────────────────────────────────────────────────────
@@ -720,16 +727,27 @@ function exportarPDFDetalhe(cotacaoId, nomeCotacao, forsArr, itensArr, precsArr,
 
     const total = res[f.nome]?.total || 0;
 
-    // Header do fornecedor
+    // Header do fornecedor com dados da filial
+    const filialH = filialInfo ? 10 : 8;
     doc.setFillColor(26, 26, 26);
-    doc.rect(14, startY, 269, 8, 'F');
+    doc.rect(14, startY, 269, filialH, 'F');
     doc.setTextColor(255,255,255);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.text(f.nome.toUpperCase(), 16, startY + 5.5);
-    doc.text('Total: R$ ' + total.toFixed(2).replace('.',','), 250, startY + 5.5);
+    doc.text('Total: R$ ' + total.toFixed(2).replace('.',','), 240, startY + 5.5);
+    if (filialInfo) {
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(200, 200, 200);
+      let filialLine = '📍 ' + filialInfo.nome;
+      if (filialInfo.cidade)   filialLine += '  —  ' + filialInfo.cidade;
+      if (filialInfo.cnpj)     filialLine += '  ·  CNPJ: ' + filialInfo.cnpj;
+      if (filialInfo.endereco) filialLine += '  ·  ' + filialInfo.endereco;
+      doc.text(filialLine, 16, startY + filialH - 2);
+    }
     doc.setTextColor(0,0,0);
-    startY += 8;
+    startY += filialH;
 
     // Tabela de itens
     doc.autoTable({
@@ -3854,8 +3872,8 @@ let _detalheData = null;
 
 function triggerPdfDetalhe() {
   if (!_detalheData) { toast('Carregue o resultado primeiro.'); return; }
-  const { cId, nome, forsArr, itensArr, precsArr, res, totalGeral } = _detalheData;
-  exportarPDFDetalhe(cId, nome, forsArr, itensArr, precsArr, res, totalGeral);
+  const { cId, nome, forsArr, itensArr, precsArr, res, totalGeral, filialInfo } = _detalheData;
+  exportarPDFDetalhe(cId, nome, forsArr, itensArr, precsArr, res, totalGeral, filialInfo);
 }
 
 async function verDetalhe(cId, nome) {
@@ -4248,8 +4266,16 @@ async function verDetalhe(cId, nome) {
 
     document.getElementById('detalhe-cards').innerHTML = cards;
 
-    // Store data for PDF export
-    _detalheData = { cId, nome, forsArr, itensArr, precsArr, res, totalGeral };
+    // Store data for PDF export (including filial info)
+    let filialInfoPdf = null;
+    try {
+      const { data: cotPdf } = await sb.from('cotacoes').select('filial_id').eq('id', cId).single();
+      if (cotPdf?.filial_id) {
+        const { data: filPdf } = await sb.from('filiais').select('nome,cnpj,cidade,endereco').eq('id', cotPdf.filial_id).single();
+        filialInfoPdf = filPdf;
+      }
+    } catch(e) {}
+    _detalheData = { cId, nome, forsArr, itensArr, precsArr, res, totalGeral, filialInfo: filialInfoPdf };
 
   } catch (err) {
     document.getElementById('detalhe-metrics').innerHTML = `<div class="alert alert-err">Erro ao carregar: ${err.message}</div>`;
