@@ -4023,7 +4023,10 @@ async function verDetalhe(cId, nome) {
     const btnEncerrarExist = document.getElementById('btn-encerrar-detalhe');
     if (btnEncerrarExist) btnEncerrarExist.remove();
 
+    // Remover btnRow anterior se existir
+    document.getElementById('detalhe-btn-row')?.remove();
     const btnRow = document.createElement('div');
+    btnRow.id = 'detalhe-btn-row';
     btnRow.style.cssText = 'display:flex;gap:10px;align-items:center;margin-bottom:1rem;flex-wrap:wrap;';
 
     if (!isEncerrada) {
